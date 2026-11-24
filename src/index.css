@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: var(--font-sans);
+    background-color: #0b0b0e;
+    color: #f4f4f5;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+.bg-charcoal-texture {
+  background-color: #0b0b0e;
+  background-image:
+    radial-gradient(circle at 18% 0%, rgba(220, 38, 38, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 82% 20%, rgba(255, 255, 255, 0.025) 0%, transparent 40%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.012) 0px,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

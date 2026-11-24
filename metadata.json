@@ -1,0 +1,6 @@
+{
+  "name": "Bulldog Hamburgueria — Cardápio Digital",
+  "description": "Cardápio digital interativo e plataforma de pedidos online via WhatsApp da Bulldog Hamburgueria, com personalização de produtos, carrinho persistente e painel administrativo completo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
