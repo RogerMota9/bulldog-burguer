@@ -1,0 +1,111 @@
+import type { Addon, PublicMenuPayload, WeeklySchedule } from '../types';
+
+export const DEFAULT_WEEKLY_SCHEDULE: WeeklySchedule = {
+  dom: { enabled: true, open: '18:30', close: '23:30' },
+  seg: { enabled: false, open: '18:30', close: '23:30' },
+  ter: { enabled: true, open: '18:30', close: '23:30' },
+  qua: { enabled: true, open: '18:30', close: '23:30' },
+  qui: { enabled: true, open: '18:30', close: '23:30' },
+  sex: { enabled: true, open: '18:30', close: '23:59' },
+  sab: { enabled: true, open: '18:30', close: '23:59' },
+};
+
+const DEFAULT_ADDONS: Addon[] = [
+  { id: 1, name: 'Bacon extra', price: 5.0, active: true },
+  { id: 2, name: 'Queijo mussarela', price: 4.0, active: true },
+  { id: 3, name: 'Cheddar cremoso', price: 4.5, active: true },
+  { id: 4, name: 'Ovo na chapa', price: 3.0, active: true },
+  { id: 5, name: 'Molho especial', price: 3.0, active: true },
+];
+
+export const DEFAULT_PUBLIC_MENU: PublicMenuPayload = {
+  settings: {
+    id: 1,
+    store_name: 'Bulldog Hamburgueria',
+    logo_url: '/assets/aistudio/logo_bulldog_ae7e998d.jpeg',
+    banner_title: 'Bulldog Hamburgueria',
+    banner_subtitle: '',
+    banner_image_url: '/src/assets/images/hero_bulldog_burger_1795489361996.jpg',
+    about_title: 'Bulldog Hamburgueria',
+    about_description: '',
+    about_image_url: '',
+    whatsapp_number: '3173391048',
+    address: '',
+    opening_hours: 'Terça a Domingo · 18h30 às 23h30',
+    contact_info: '(31) 7339-1048',
+    delivery_fee: 0,
+    payment_methods: ['Dinheiro', 'Pix', 'Cartão de crédito', 'Cartão de débito'],
+    store_status_mode: 'auto',
+    schedule: DEFAULT_WEEKLY_SCHEDULE,
+  },
+  categories: [
+    { id: 1, name: 'Hambúrgueres', slug: 'hamburgueres', description: '', sort_order: 1, active: true },
+    { id: 2, name: 'Hot Dogs', slug: 'hot-dogs', description: '', sort_order: 2, active: true },
+  ],
+  products: [
+    {
+      id: 1,
+      category_id: 1,
+      category_name: 'Hambúrgueres',
+      name: 'Bulldog Duplo',
+      description:
+        'Dois hambúrgueres na chapa, queijo derretido, alface, tomate, batata palha e molho da casa.',
+      price: 32.9,
+      image_url: '/assets/aistudio/hamburguer_1_8f1db153.jpeg',
+      featured: true,
+      active: true,
+      available: true,
+      is_demo: false,
+      sort_order: 1,
+      addons: DEFAULT_ADDONS,
+    },
+    {
+      id: 2,
+      category_id: 1,
+      category_name: 'Hambúrgueres',
+      name: 'Bulldog Clássico',
+      description:
+        'Pão com gergelim, hambúrguer suculento, queijo derretido, alface, tomate, batata palha e cheddar.',
+      price: 28.9,
+      image_url: '/assets/aistudio/hamburguer_2_ace2a5d3.jpeg',
+      featured: true,
+      active: true,
+      available: true,
+      is_demo: false,
+      sort_order: 2,
+      addons: DEFAULT_ADDONS,
+    },
+    {
+      id: 3,
+      category_id: 2,
+      category_name: 'Hot Dogs',
+      name: 'Hot Dog Tradicional',
+      description:
+        'Pão macio tostado, salsicha grelhada, cheddar cremoso, bacon crocante e batata palha.',
+      price: 19.9,
+      image_url: '/src/assets/images/hotdog_bulldog_tradicional_1795489362066.jpg',
+      featured: true,
+      active: true,
+      available: true,
+      is_demo: false,
+      sort_order: 3,
+      addons: DEFAULT_ADDONS,
+    },
+    {
+      id: 4,
+      category_id: 2,
+      category_name: 'Hot Dogs',
+      name: 'Hot Dog Especial Duplo',
+      description:
+        'Duas salsichas na chapa, queijo maçaricado, bacon em cubos, cebola caramelizada e batata palha.',
+      price: 25.9,
+      image_url: '/src/assets/images/hotdog_bulldog_especial_1795489363377.jpg',
+      featured: true,
+      active: true,
+      available: true,
+      is_demo: false,
+      sort_order: 4,
+      addons: DEFAULT_ADDONS,
+    },
+  ],
+};

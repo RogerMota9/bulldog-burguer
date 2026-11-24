@@ -152,6 +152,13 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (res.status === 404 || !contentType.includes('application/json')) {
+        setLoginError(
+          'O servidor Node (/api) não está ativo nesta hospedagem estática. Para usar o painel administrativo e o banco de dados, execute o projeto em um servidor Node (npm start) como Render, Railway ou Cloud Run.',
+        );
+        return;
+      }
       const data = await res.json();
       if (!res.ok) {
         setLoginError(data.error || 'Credenciais inválidas.');

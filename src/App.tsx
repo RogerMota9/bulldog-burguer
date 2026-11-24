@@ -13,6 +13,7 @@ import { BrandWordmark, SafeFoodImage } from './components/BulldogLogo';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ProductModal } from './components/ProductModal';
+import { DEFAULT_PUBLIC_MENU } from './data/defaultCatalog';
 import type { CartItem, Product, PublicMenuPayload } from './types';
 import {
   formatCurrency,
@@ -54,12 +55,20 @@ export default function App() {
   const fetchMenu = useCallback(async () => {
     try {
       const res = await fetch('/api/menu');
-      if (!res.ok) throw new Error('Erro ao carregar cardápio');
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error('Backend API unavailable');
+      }
       const data = (await res.json()) as PublicMenuPayload;
+      if (!data || !Array.isArray(data.products)) {
+        throw new Error('Invalid menu payload');
+      }
       setMenuData(data);
       setMenuError('');
     } catch {
-      setMenuError('Não foi possível carregar o cardápio. Tente recarregar a página.');
+      // Static deployments (e.g. Vercel without Node server) fall back cleanly to the bundled catalog
+      setMenuData(DEFAULT_PUBLIC_MENU);
+      setMenuError('');
     } finally {
       setLoadingMenu(false);
     }
