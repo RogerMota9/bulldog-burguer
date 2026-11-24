@@ -153,10 +153,8 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
       const contentType = res.headers.get('content-type') || '';
-      if (res.status === 404 || !contentType.includes('application/json')) {
-        setLoginError(
-          'O servidor Node (/api) não está ativo nesta hospedagem estática. Para usar o painel administrativo e o banco de dados, execute o projeto em um servidor Node (npm start) como Render, Railway ou Cloud Run.',
-        );
+      if (!contentType.includes('application/json')) {
+        setLoginError('Não foi possível conectar ao servidor de autenticação.');
         return;
       }
       const data = await res.json();
@@ -969,12 +967,12 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
               {/* TAB: SETTINGS */}
               {tab === 'settings' && settingsForm && (
                 <form onSubmit={handleSaveSettings} className="space-y-6">
-                  <div>
-                    <h1 className="font-display text-3xl font-bold text-white">Configurações da Hamburgueria</h1>
-                    <p className="text-sm text-zinc-400 mt-1">
-                      Todas as alterações são salvas no banco de dados e refletem imediatamente no cardápio público.
-                    </p>
-                  </div>
+                    <div>
+                      <h1 className="font-display text-3xl font-bold text-white">Configurações da Loja</h1>
+                      <p className="text-sm text-zinc-400 mt-1">
+                        Todas as alterações são salvas e refletem imediatamente no cardápio público.
+                      </p>
+                    </div>
 
                   <div className="rounded-2xl bg-[#141418] border border-white/10 p-5 space-y-4">
                     <h2 className="text-base font-semibold text-white">Identidade & Contato</h2>
@@ -1108,7 +1106,7 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
                     <div>
                       <h2 className="text-base font-semibold text-white">Status e Horários de Funcionamento</h2>
                       <p className="text-xs text-zinc-400 mt-0.5">
-                        Define se a hamburgueria aparece como Aberta ou Fechada para os clientes.
+                        Define se a loja aparece como Aberta ou Fechada para os clientes.
                       </p>
                     </div>
 

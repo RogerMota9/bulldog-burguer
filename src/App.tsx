@@ -413,7 +413,7 @@ export default function App() {
       {/* FOOTER DISCRETO */}
       <footer className="border-t border-white/10 bg-[#09090B] py-5 px-4 mb-14 md:mb-0">
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
-          <span>{settings?.store_name || 'Bulldog Hamburgueria'}</span>
+          <span>{settings?.store_name || 'Bulldog'}</span>
           <button
             type="button"
             onClick={navigateToAdmin}

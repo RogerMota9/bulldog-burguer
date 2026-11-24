@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { hashPassword } from './auth.ts';
+import type { DataStore, ProductInput } from './storeTypes.ts';
 import type { Addon, Category, Product, StoreSettings, StoreStatusMode, WeeklySchedule } from '../src/types.ts';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -132,12 +133,12 @@ export function initDatabase(): void {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       1,
-      'Bulldog Hamburgueria',
+      'Bulldog',
       DEFAULT_LOGO_URL,
-      'Bulldog Hamburgueria',
+      'Bulldog',
       '',
       '/src/assets/images/hero_bulldog_burger_1795489361996.jpg',
-      'Bulldog Hamburgueria',
+      'Bulldog',
       '',
       '',
       '3173391048',
@@ -262,7 +263,7 @@ export function initDatabase(): void {
         }
         db.prepare(
           `UPDATE settings SET banner_title = ?, banner_subtitle = ?, address = ?, contact_info = ? WHERE id = 1`,
-        ).run('Bulldog Hamburgueria', '', '', '(31) 7339-1048');
+        ).run('Bulldog', '', '', '(31) 7339-1048');
       }
 
       // Remove extra seeded demo items (combos, fries, drinks) if untouched
@@ -296,6 +297,18 @@ export function initDatabase(): void {
       db.pragma('user_version = 2');
     });
     migrateV2();
+  }
+
+  const vAfter2 = (db.pragma('user_version', { simple: true }) as number) || 0;
+  if (vAfter2 < 3) {
+    db.prepare(
+      `UPDATE settings
+       SET store_name = 'Bulldog',
+           banner_title = CASE WHEN banner_title = 'Bulldog Hamburgueria' THEN 'Bulldog' ELSE banner_title END,
+           about_title = CASE WHEN about_title = 'Bulldog Hamburgueria' THEN 'Bulldog' ELSE about_title END
+       WHERE id = 1 AND store_name = 'Bulldog Hamburgueria'`,
+    ).run();
+    db.pragma('user_version = 3');
   }
 }
 
@@ -489,3 +502,241 @@ export function getProducts(onlyActive = false): Product[] {
     addons: addonsByProduct.get(r.id) || [],
   }));
 }
+
+function slugify(value: string): string {
+  return (
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || `categoria-${Date.now()}`
+  );
+}
+
+export const sqliteStore: DataStore = {
+  uploadsDir: UPLOADS_DIR,
+
+  getAdminByEmail(email: string) {
+    return db.prepare('SELECT id, email, password_hash FROM admins WHERE email = ?').get(email) as
+      | { id: number; email: string; password_hash: string }
+      | undefined;
+  },
+
+  updateAdminPassword(email: string, newHash: string) {
+    db.prepare('UPDATE admins SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?').run(
+      newHash,
+      email,
+    );
+  },
+
+  getSettings,
+
+  updateSettings(next: StoreSettings) {
+    db.prepare(
+      `UPDATE settings SET
+        store_name = ?,
+        logo_url = ?,
+        banner_title = ?,
+        banner_subtitle = ?,
+        banner_image_url = ?,
+        about_title = ?,
+        about_description = ?,
+        about_image_url = ?,
+        whatsapp_number = ?,
+        address = ?,
+        opening_hours = ?,
+        contact_info = ?,
+        delivery_fee = ?,
+        payment_methods_json = ?,
+        store_status_mode = ?,
+        schedule_json = ?
+       WHERE id = 1`,
+    ).run(
+      next.store_name,
+      next.logo_url,
+      next.banner_title,
+      next.banner_subtitle,
+      next.banner_image_url,
+      next.about_title,
+      next.about_description,
+      next.about_image_url,
+      next.whatsapp_number,
+      next.address,
+      next.opening_hours,
+      next.contact_info,
+      next.delivery_fee,
+      JSON.stringify(next.payment_methods),
+      next.store_status_mode,
+      JSON.stringify(next.schedule),
+    );
+    return getSettings();
+  },
+
+  getCategories,
+
+  createCategory(name: string, description: string, active: boolean) {
+    const maxOrderRow = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM categories').get() as {
+      max_order: number;
+    };
+    let slug = slugify(name);
+    const dup = db.prepare('SELECT id FROM categories WHERE slug = ?').get(slug);
+    if (dup) {
+      slug = `${slug}-${Date.now().toString().slice(-4)}`;
+    }
+    db.prepare('INSERT INTO categories (name, slug, description, sort_order, active) VALUES (?, ?, ?, ?, ?)').run(
+      name,
+      slug,
+      description,
+      maxOrderRow.max_order + 1,
+      active ? 1 : 0,
+    );
+    return getCategories(false);
+  },
+
+  updateCategory(id: number, name: string, description: string, active: boolean) {
+    const existing = db.prepare('SELECT id FROM categories WHERE id = ?').get(id);
+    if (!existing) return null;
+    db.prepare('UPDATE categories SET name = ?, description = ?, active = ? WHERE id = ?').run(
+      name,
+      description,
+      active ? 1 : 0,
+      id,
+    );
+    return getCategories(false);
+  },
+
+  reorderCategories(orderedIds: number[]) {
+    const updateStmt = db.prepare('UPDATE categories SET sort_order = ? WHERE id = ?');
+    const tx = db.transaction((ids: number[]) => {
+      ids.forEach((id, idx) => updateStmt.run(idx + 1, id));
+    });
+    tx(orderedIds);
+    return getCategories(false);
+  },
+
+  deleteCategory(id: number) {
+    const productCount = (
+      db.prepare('SELECT COUNT(*) AS count FROM products WHERE category_id = ?').get(id) as { count: number }
+    ).count;
+    if (productCount > 0) {
+      return {
+        ok: false as const,
+        error: `Esta categoria possui ${productCount} produto(s). Mova ou exclua os produtos antes de remover a categoria.`,
+      };
+    }
+    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+    return { ok: true as const, categories: getCategories(false) };
+  },
+
+  getAddons,
+
+  createAddon(name: string, price: number, active: boolean) {
+    const info = db
+      .prepare('INSERT INTO addons (name, price, active) VALUES (?, ?, ?)')
+      .run(name, price, active ? 1 : 0);
+    return { id: Number(info.lastInsertRowid), addons: getAddons(false) };
+  },
+
+  updateAddon(id: number, name: string, price: number, active: boolean) {
+    db.prepare('UPDATE addons SET name = ?, price = ?, active = ? WHERE id = ?').run(
+      name,
+      price,
+      active ? 1 : 0,
+      id,
+    );
+    return getAddons(false);
+  },
+
+  deleteAddon(id: number) {
+    db.prepare('DELETE FROM addons WHERE id = ?').run(id);
+    return getAddons(false);
+  },
+
+  getProducts,
+
+  createProduct(input: ProductInput) {
+    const maxSort = (
+      db
+        .prepare('SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM products WHERE category_id = ?')
+        .get(input.category_id) as { max_order: number }
+    ).max_order;
+
+    const tx = db.transaction(() => {
+      const info = db
+        .prepare(
+          `INSERT INTO products (
+            category_id, name, description, price, image_url, featured, active, available, is_demo, sort_order
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          input.category_id,
+          input.name,
+          input.description,
+          input.price,
+          input.image_url,
+          input.featured ? 1 : 0,
+          input.active ? 1 : 0,
+          input.available ? 1 : 0,
+          input.is_demo ? 1 : 0,
+          maxSort + 1,
+        );
+
+      const productId = Number(info.lastInsertRowid);
+      const linkStmt = db.prepare('INSERT OR IGNORE INTO product_addons (product_id, addon_id) VALUES (?, ?)');
+      for (const addonId of input.addon_ids) {
+        linkStmt.run(productId, addonId);
+      }
+      return productId;
+    });
+
+    const id = tx();
+    return { id, products: getProducts(false) };
+  },
+
+  updateProduct(id: number, input: ProductInput) {
+    const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(id);
+    if (!existing) return null;
+
+    const tx = db.transaction(() => {
+      db.prepare(
+        `UPDATE products SET
+          category_id = ?,
+          name = ?,
+          description = ?,
+          price = ?,
+          image_url = ?,
+          featured = ?,
+          active = ?,
+          available = ?,
+          is_demo = ?
+        WHERE id = ?`,
+      ).run(
+        input.category_id,
+        input.name,
+        input.description,
+        input.price,
+        input.image_url,
+        input.featured ? 1 : 0,
+        input.active ? 1 : 0,
+        input.available ? 1 : 0,
+        input.is_demo ? 1 : 0,
+        id,
+      );
+
+      db.prepare('DELETE FROM product_addons WHERE product_id = ?').run(id);
+      const linkStmt = db.prepare('INSERT OR IGNORE INTO product_addons (product_id, addon_id) VALUES (?, ?)');
+      for (const addonId of input.addon_ids) {
+        linkStmt.run(id, addonId);
+      }
+    });
+
+    tx();
+    return getProducts(false);
+  },
+
+  deleteProduct(id: number) {
+    db.prepare('DELETE FROM products WHERE id = ?').run(id);
+    return getProducts(false);
+  },
+};

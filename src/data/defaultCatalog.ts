@@ -21,12 +21,12 @@ const DEFAULT_ADDONS: Addon[] = [
 export const DEFAULT_PUBLIC_MENU: PublicMenuPayload = {
   settings: {
     id: 1,
-    store_name: 'Bulldog Hamburgueria',
+    store_name: 'Bulldog',
     logo_url: '/assets/aistudio/logo_bulldog_ae7e998d.jpeg',
-    banner_title: 'Bulldog Hamburgueria',
+    banner_title: 'Bulldog',
     banner_subtitle: '',
     banner_image_url: '/src/assets/images/hero_bulldog_burger_1795489361996.jpg',
-    about_title: 'Bulldog Hamburgueria',
+    about_title: 'Bulldog',
     about_description: '',
     about_image_url: '',
     whatsapp_number: '3173391048',
