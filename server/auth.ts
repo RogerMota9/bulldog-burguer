@@ -104,13 +104,13 @@ export function verifyToken(token: string): AuthTokenPayload | null {
   }
 }
 
-export function verifyAdminToken(token: string, store?: DataStore): string | null {
+export async function verifyAdminToken(token: string, store?: DataStore): Promise<string | null> {
   const payload = verifyToken(token);
   if (payload) {
     return payload.email;
   }
   if (store) {
-    const stored = store.getSessionByTokenHash(hashSessionToken(token));
+    const stored = await store.getSessionByTokenHash(hashSessionToken(token));
     if (stored && stored.expires_at > Date.now()) {
       return stored.email;
     }
@@ -119,19 +119,27 @@ export function verifyAdminToken(token: string, store?: DataStore): string | nul
 }
 
 export function createRequireAdmin(store?: DataStore) {
-  return function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-    const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Autenticação necessária.' });
-      return;
+  return async function requireAdmin(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const header = req.headers.authorization;
+      if (!header || !header.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Autenticação necessária.' });
+        return;
+      }
+      const token = header.slice('Bearer '.length).trim();
+      const email = await verifyAdminToken(token, store);
+      if (!email) {
+        res.status(401).json({ error: 'Sessão inválida ou expirada. Faça login novamente.' });
+        return;
+      }
+      req.adminEmail = email;
+      next();
+    } catch (err) {
+      next(err);
     }
-    const token = header.slice('Bearer '.length).trim();
-    const email = verifyAdminToken(token, store);
-    if (!email) {
-      res.status(401).json({ error: 'Sessão inválida ou expirada. Faça login novamente.' });
-      return;
-    }
-    req.adminEmail = email;
-    next();
   };
 }

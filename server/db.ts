@@ -279,6 +279,46 @@ export function initDatabase(): void {
     });
     migrateV4();
   }
+
+  const vAfter4 = (db.pragma('user_version', { simple: true }) as number) || 0;
+  if (vAfter4 < 5) {
+    const migrateV5 = db.transaction(() => {
+      db.prepare(
+        `UPDATE products SET name = 'Suco Del Valle Maracujá', description = '290ml · Lata gelada.', image_url = ?, sort_order = 4
+         WHERE id = 13`,
+      ).run('/assets/aistudio/image_8ff249b7.png');
+      db.prepare('UPDATE products SET image_url = ?, sort_order = 7 WHERE id = 14').run(
+        '/assets/aistudio/image_a7ab727b.png',
+      );
+      db.prepare('UPDATE products SET image_url = ?, sort_order = 8 WHERE id = 15').run(
+        '/assets/aistudio/image_0a545eb0.png',
+      );
+      db.prepare('UPDATE products SET image_url = ?, sort_order = 9 WHERE id = 16').run(
+        '/assets/aistudio/image_e2a707ca.png',
+      );
+      db.prepare('UPDATE products SET image_url = ?, sort_order = 10 WHERE id = 17').run(
+        '/assets/aistudio/image_4a0ffc19.png',
+      );
+      db.prepare('UPDATE products SET image_url = ?, sort_order = 11 WHERE id = 18').run(
+        '/assets/aistudio/image_5f03f529.png',
+      );
+      db.prepare('UPDATE products SET image_url = ?, sort_order = 12 WHERE id = 19').run(
+        '/assets/aistudio/image_c03ca6c4.png',
+      );
+
+      db.prepare(
+        `INSERT OR IGNORE INTO products (id, category_id, name, description, price, image_url, featured, active, available, is_demo, sort_order)
+         VALUES (20, 4, 'Suco Del Valle Uva', '290ml · Lata gelada.', 6.0, '/assets/aistudio/image_9e373a41.png', 0, 1, 1, 0, 5)`,
+      ).run();
+      db.prepare(
+        `INSERT OR IGNORE INTO products (id, category_id, name, description, price, image_url, featured, active, available, is_demo, sort_order)
+         VALUES (21, 4, 'Suco Del Valle Pêssego', '290ml · Lata gelada.', 6.0, '/assets/aistudio/image_2698816d.png', 0, 1, 1, 0, 6)`,
+      ).run();
+
+      db.pragma('user_version = 5');
+    });
+    migrateV5();
+  }
 }
 
 export function getSettings(): StoreSettings {
@@ -486,20 +526,20 @@ function slugify(value: string): string {
 export const sqliteStore: DataStore = {
   uploadsDir: UPLOADS_DIR,
 
-  getAdminByEmail(email: string) {
+  async getAdminByEmail(email: string) {
     return db.prepare('SELECT id, email, password_hash FROM admins WHERE email = ?').get(email) as
       | { id: number; email: string; password_hash: string }
       | undefined;
   },
 
-  updateAdminPassword(email: string, newHash: string) {
+  async updateAdminPassword(email: string, newHash: string) {
     db.prepare('UPDATE admins SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?').run(
       newHash,
       email,
     );
   },
 
-  saveSession(tokenHash: string, email: string, expiresAt: number) {
+  async saveSession(tokenHash: string, email: string, expiresAt: number) {
     db.prepare('DELETE FROM admin_sessions WHERE expires_at <= ?').run(Date.now());
     db.prepare('INSERT OR REPLACE INTO admin_sessions (token_hash, email, expires_at) VALUES (?, ?, ?)').run(
       tokenHash,
@@ -508,7 +548,7 @@ export const sqliteStore: DataStore = {
     );
   },
 
-  getSessionByTokenHash(tokenHash: string) {
+  async getSessionByTokenHash(tokenHash: string) {
     const row = db
       .prepare('SELECT token_hash, email, expires_at FROM admin_sessions WHERE token_hash = ?')
       .get(tokenHash) as { token_hash: string; email: string; expires_at: number } | undefined;
@@ -520,17 +560,19 @@ export const sqliteStore: DataStore = {
     return row;
   },
 
-  deleteSession(tokenHash: string) {
+  async deleteSession(tokenHash: string) {
     db.prepare('DELETE FROM admin_sessions WHERE token_hash = ?').run(tokenHash);
   },
 
-  deleteSessionsByEmail(email: string) {
+  async deleteSessionsByEmail(email: string) {
     db.prepare('DELETE FROM admin_sessions WHERE email = ?').run(email);
   },
 
-  getSettings,
+  async getSettings() {
+    return getSettings();
+  },
 
-  updateSettings(next: StoreSettings) {
+  async updateSettings(next: StoreSettings) {
     db.prepare(
       `UPDATE settings SET
         store_name = ?,
@@ -571,9 +613,11 @@ export const sqliteStore: DataStore = {
     return getSettings();
   },
 
-  getCategories,
+  async getCategories(onlyActive = false) {
+    return getCategories(onlyActive);
+  },
 
-  createCategory(name: string, description: string, active: boolean) {
+  async createCategory(name: string, description: string, active: boolean) {
     const maxOrderRow = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM categories').get() as {
       max_order: number;
     };
@@ -592,7 +636,7 @@ export const sqliteStore: DataStore = {
     return getCategories(false);
   },
 
-  updateCategory(id: number, name: string, description: string, active: boolean) {
+  async updateCategory(id: number, name: string, description: string, active: boolean) {
     const existing = db.prepare('SELECT id FROM categories WHERE id = ?').get(id);
     if (!existing) return null;
     db.prepare('UPDATE categories SET name = ?, description = ?, active = ? WHERE id = ?').run(
@@ -604,7 +648,7 @@ export const sqliteStore: DataStore = {
     return getCategories(false);
   },
 
-  reorderCategories(orderedIds: number[]) {
+  async reorderCategories(orderedIds: number[]) {
     const updateStmt = db.prepare('UPDATE categories SET sort_order = ? WHERE id = ?');
     const tx = db.transaction((ids: number[]) => {
       ids.forEach((id, idx) => updateStmt.run(idx + 1, id));
@@ -613,7 +657,7 @@ export const sqliteStore: DataStore = {
     return getCategories(false);
   },
 
-  deleteCategory(id: number) {
+  async deleteCategory(id: number) {
     const productCount = (
       db.prepare('SELECT COUNT(*) AS count FROM products WHERE category_id = ?').get(id) as { count: number }
     ).count;
@@ -627,16 +671,18 @@ export const sqliteStore: DataStore = {
     return { ok: true as const, categories: getCategories(false) };
   },
 
-  getAddons,
+  async getAddons(onlyActive = false) {
+    return getAddons(onlyActive);
+  },
 
-  createAddon(name: string, price: number, active: boolean) {
+  async createAddon(name: string, price: number, active: boolean) {
     const info = db
       .prepare('INSERT INTO addons (name, price, active) VALUES (?, ?, ?)')
       .run(name, price, active ? 1 : 0);
     return { id: Number(info.lastInsertRowid), addons: getAddons(false) };
   },
 
-  updateAddon(id: number, name: string, price: number, active: boolean) {
+  async updateAddon(id: number, name: string, price: number, active: boolean) {
     db.prepare('UPDATE addons SET name = ?, price = ?, active = ? WHERE id = ?').run(
       name,
       price,
@@ -646,14 +692,16 @@ export const sqliteStore: DataStore = {
     return getAddons(false);
   },
 
-  deleteAddon(id: number) {
+  async deleteAddon(id: number) {
     db.prepare('DELETE FROM addons WHERE id = ?').run(id);
     return getAddons(false);
   },
 
-  getProducts,
+  async getProducts(onlyActive = false) {
+    return getProducts(onlyActive);
+  },
 
-  createProduct(input: ProductInput) {
+  async createProduct(input: ProductInput) {
     const maxSort = (
       db
         .prepare('SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM products WHERE category_id = ?')
@@ -692,7 +740,7 @@ export const sqliteStore: DataStore = {
     return { id, products: getProducts(false) };
   },
 
-  updateProduct(id: number, input: ProductInput) {
+  async updateProduct(id: number, input: ProductInput) {
     const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(id);
     if (!existing) return null;
 
@@ -733,7 +781,7 @@ export const sqliteStore: DataStore = {
     return getProducts(false);
   },
 
-  deleteProduct(id: number) {
+  async deleteProduct(id: number) {
     db.prepare('DELETE FROM products WHERE id = ?').run(id);
     return getProducts(false);
   },

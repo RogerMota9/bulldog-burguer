@@ -98,6 +98,22 @@ export function isPortraitBurgerPhoto(src: string): boolean {
   );
 }
 
+const BEVERAGE_CUTOUT_IDS = [
+  'image_c03ca6c4',
+  'image_8ff249b7',
+  'image_9e373a41',
+  'image_5f03f529',
+  'image_2698816d',
+  'image_4a0ffc19',
+  'image_e2a707ca',
+  'image_a7ab727b',
+  'image_0a545eb0',
+];
+
+export function isBeverageCutoutImage(src: string): boolean {
+  return BEVERAGE_CUTOUT_IDS.some((id) => src.includes(id));
+}
+
 export function SafeFoodImage({ src, alt, className = '' }: SafeFoodImageProps) {
   const [failed, setFailed] = useState(false);
   useEffect(() => {

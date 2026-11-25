@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, Minus, Plus, X } from 'lucide-react';
 import type { Addon, CartItem, Product } from '../types';
 import { formatCurrency } from '../utils/format';
-import { isPortraitBurgerPhoto, SafeFoodImage } from './BulldogLogo';
+import { isBeverageCutoutImage, isPortraitBurgerPhoto, SafeFoodImage } from './BulldogLogo';
 
 interface ProductModalProps {
   product: Product | null;
@@ -69,6 +69,7 @@ export function ProductModal({ product, editingCartItem, onClose, onConfirm }: P
   };
 
   const portraitBurger = isPortraitBurgerPhoto(product.image_url);
+  const beverageCutout = isBeverageCutoutImage(product.image_url);
 
   return (
     <div
@@ -82,7 +83,11 @@ export function ProductModal({ product, editingCartItem, onClose, onConfirm }: P
         className="w-full sm:max-w-xl max-h-[92vh] flex flex-col bg-[#141418] border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative h-60 sm:h-72 shrink-0 bg-zinc-950 overflow-hidden flex items-center justify-center">
+        <div
+          className={`relative h-60 sm:h-72 shrink-0 overflow-hidden flex items-center justify-center ${
+            beverageCutout ? 'bg-white' : 'bg-zinc-950'
+          }`}
+        >
           {portraitBurger ? (
             <>
               <SafeFoodImage
@@ -96,6 +101,12 @@ export function ProductModal({ product, editingCartItem, onClose, onConfirm }: P
                 className="relative z-10 h-full w-auto max-w-full object-contain py-2"
               />
             </>
+          ) : beverageCutout ? (
+            <SafeFoodImage
+              src={product.image_url}
+              alt={product.name}
+              className="h-full w-auto max-w-full object-contain p-4"
+            />
           ) : (
             <SafeFoodImage
               src={product.image_url}
@@ -103,7 +114,9 @@ export function ProductModal({ product, editingCartItem, onClose, onConfirm }: P
               className="w-full h-full object-cover"
             />
           )}
-          <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#141418] via-transparent to-transparent pointer-events-none" />
+          {!beverageCutout && (
+            <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#141418] via-transparent to-transparent pointer-events-none" />
+          )}
           <button
             type="button"
             onClick={onClose}

@@ -9,7 +9,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { AdminPanel } from './components/AdminPanel';
-import { BrandWordmark, SafeFoodImage } from './components/BulldogLogo';
+import { BrandWordmark, isBeverageCutoutImage, SafeFoodImage } from './components/BulldogLogo';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ProductModal } from './components/ProductModal';
@@ -385,11 +385,21 @@ export default function App() {
                               : 'opacity-60'
                           }`}
                         >
-                          <div className="w-28 h-28 sm:w-40 sm:h-36 rounded-xl overflow-hidden bg-zinc-950 shrink-0 border border-white/5">
+                          <div
+                            className={`w-28 h-28 sm:w-40 sm:h-36 rounded-xl overflow-hidden shrink-0 border border-white/5 ${
+                              isBeverageCutoutImage(product.image_url)
+                                ? 'bg-white p-1.5'
+                                : 'bg-zinc-950'
+                            }`}
+                          >
                             <SafeFoodImage
                               src={product.image_url}
                               alt={product.name}
-                              className="w-full h-full object-cover"
+                              className={`w-full h-full ${
+                                isBeverageCutoutImage(product.image_url)
+                                  ? 'object-contain'
+                                  : 'object-cover'
+                              }`}
                             />
                           </div>
 

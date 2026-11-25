@@ -3,9 +3,14 @@ import path from 'node:path';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { initDatabase, sqliteStore, UPLOADS_DIR } from './server/db.ts';
+import { pgStore } from './server/pgStore.ts';
 import { createApiRouter } from './server/routes.ts';
 
-initDatabase();
+const hasPostgres = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
+if (!hasPostgres) {
+  initDatabase();
+}
+const activeStore = hasPostgres ? pgStore : sqliteStore;
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -15,7 +20,7 @@ app.use(express.json({ limit: '8mb' }));
 
 app.use('/uploads', express.static(UPLOADS_DIR));
 app.use('/assets', express.static(path.resolve(process.cwd(), 'public/assets')));
-app.use('/api', createApiRouter(sqliteStore));
+app.use('/api', createApiRouter(activeStore));
 
 async function startServer(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {

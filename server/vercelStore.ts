@@ -7,7 +7,7 @@ import type { Addon, Category, Product, StoreSettings } from '../src/types.ts';
 
 const TMP_BASE = '/tmp/bulldog';
 export const VERCEL_UPLOADS_DIR = path.resolve(TMP_BASE, 'uploads');
-const STORE_FILE = path.resolve(TMP_BASE, 'store_v4.json');
+const STORE_FILE = path.resolve(TMP_BASE, 'store_v5.json');
 
 const DEFAULT_ADMIN_EMAIL = (process.env.ADMIN_INITIAL_EMAIL || 'albartholiveira@gmail.com').trim().toLowerCase();
 const DEFAULT_INITIAL_HASH =
@@ -104,12 +104,12 @@ function slugify(value: string): string {
 export const vercelStore: DataStore = {
   uploadsDir: VERCEL_UPLOADS_DIR,
 
-  getAdminByEmail(email: string): AdminRecord | undefined {
+  async getAdminByEmail(email: string): Promise<AdminRecord | undefined> {
     const state = loadState();
     return state.admins.find((a) => a.email === email);
   },
 
-  updateAdminPassword(email: string, newHash: string): void {
+  async updateAdminPassword(email: string, newHash: string): Promise<void> {
     const state = loadState();
     const admin = state.admins.find((a) => a.email === email);
     if (admin) {
@@ -118,7 +118,7 @@ export const vercelStore: DataStore = {
     }
   },
 
-  saveSession(tokenHash: string, email: string, expiresAt: number): void {
+  async saveSession(tokenHash: string, email: string, expiresAt: number): Promise<void> {
     const state = loadState();
     const now = Date.now();
     state.sessions = (state.sessions || []).filter((s) => s.expires_at > now && s.token_hash !== tokenHash);
@@ -126,7 +126,7 @@ export const vercelStore: DataStore = {
     saveState(state);
   },
 
-  getSessionByTokenHash(tokenHash: string): AdminSessionRecord | undefined {
+  async getSessionByTokenHash(tokenHash: string): Promise<AdminSessionRecord | undefined> {
     const state = loadState();
     const found = (state.sessions || []).find((s) => s.token_hash === tokenHash);
     if (!found) return undefined;
@@ -138,37 +138,37 @@ export const vercelStore: DataStore = {
     return found;
   },
 
-  deleteSession(tokenHash: string): void {
+  async deleteSession(tokenHash: string): Promise<void> {
     const state = loadState();
     state.sessions = (state.sessions || []).filter((s) => s.token_hash !== tokenHash);
     saveState(state);
   },
 
-  deleteSessionsByEmail(email: string): void {
+  async deleteSessionsByEmail(email: string): Promise<void> {
     const state = loadState();
     state.sessions = (state.sessions || []).filter((s) => s.email !== email);
     saveState(state);
   },
 
-  getSettings(): StoreSettings {
+  async getSettings(): Promise<StoreSettings> {
     return loadState().settings;
   },
 
-  updateSettings(settings: StoreSettings): StoreSettings {
+  async updateSettings(settings: StoreSettings): Promise<StoreSettings> {
     const state = loadState();
     state.settings = settings;
     saveState(state);
     return state.settings;
   },
 
-  getCategories(onlyActive = false): Category[] {
+  async getCategories(onlyActive = false): Promise<Category[]> {
     const state = loadState();
     return [...state.categories]
       .filter((c) => (onlyActive ? c.active : true))
       .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id);
   },
 
-  createCategory(name: string, description: string, active: boolean): Category[] {
+  async createCategory(name: string, description: string, active: boolean): Promise<Category[]> {
     const state = loadState();
     const maxOrder = state.categories.reduce((m, c) => Math.max(m, c.sort_order), 0);
     let slug = slugify(name);
@@ -187,7 +187,7 @@ export const vercelStore: DataStore = {
     return this.getCategories(false);
   },
 
-  updateCategory(id: number, name: string, description: string, active: boolean): Category[] | null {
+  async updateCategory(id: number, name: string, description: string, active: boolean): Promise<Category[] | null> {
     const state = loadState();
     const cat = state.categories.find((c) => c.id === id);
     if (!cat) return null;
@@ -198,7 +198,7 @@ export const vercelStore: DataStore = {
     return this.getCategories(false);
   },
 
-  reorderCategories(orderedIds: number[]): Category[] {
+  async reorderCategories(orderedIds: number[]): Promise<Category[]> {
     const state = loadState();
     orderedIds.forEach((id, idx) => {
       const cat = state.categories.find((c) => c.id === id);
@@ -208,7 +208,7 @@ export const vercelStore: DataStore = {
     return this.getCategories(false);
   },
 
-  deleteCategory(id: number): { ok: true; categories: Category[] } | { ok: false; error: string } {
+  async deleteCategory(id: number): Promise<{ ok: true; categories: Category[] } | { ok: false; error: string }> {
     const state = loadState();
     const count = state.products.filter((p) => p.category_id === id).length;
     if (count > 0) {
@@ -219,10 +219,10 @@ export const vercelStore: DataStore = {
     }
     state.categories = state.categories.filter((c) => c.id !== id);
     saveState(state);
-    return { ok: true, categories: this.getCategories(false) };
+    return { ok: true, categories: await this.getCategories(false) };
   },
 
-  getAddons(onlyActive = false): Addon[] {
+  async getAddons(onlyActive = false): Promise<Addon[]> {
     const state = loadState();
     return state.addons
       .filter((a) => (onlyActive ? a.active : true))
@@ -232,15 +232,15 @@ export const vercelStore: DataStore = {
       }));
   },
 
-  createAddon(name: string, price: number, active: boolean): { id: number; addons: Addon[] } {
+  async createAddon(name: string, price: number, active: boolean): Promise<{ id: number; addons: Addon[] }> {
     const state = loadState();
     const id = state.nextId.addon++;
     state.addons.push({ id, name, price, active });
     saveState(state);
-    return { id, addons: this.getAddons(false) };
+    return { id, addons: await this.getAddons(false) };
   },
 
-  updateAddon(id: number, name: string, price: number, active: boolean): Addon[] {
+  async updateAddon(id: number, name: string, price: number, active: boolean): Promise<Addon[]> {
     const state = loadState();
     const addon = state.addons.find((a) => a.id === id);
     if (addon) {
@@ -252,7 +252,7 @@ export const vercelStore: DataStore = {
     return this.getAddons(false);
   },
 
-  deleteAddon(id: number): Addon[] {
+  async deleteAddon(id: number): Promise<Addon[]> {
     const state = loadState();
     state.addons = state.addons.filter((a) => a.id !== id);
     state.products.forEach((p) => {
@@ -262,7 +262,7 @@ export const vercelStore: DataStore = {
     return this.getAddons(false);
   },
 
-  getProducts(onlyActive = false): Product[] {
+  async getProducts(onlyActive = false): Promise<Product[]> {
     const state = loadState();
     const catMap = new Map(state.categories.map((c) => [c.id, c]));
     return [...state.products]
@@ -295,7 +295,7 @@ export const vercelStore: DataStore = {
       }));
   },
 
-  createProduct(input: ProductInput): { id: number; products: Product[] } {
+  async createProduct(input: ProductInput): Promise<{ id: number; products: Product[] }> {
     const state = loadState();
     const maxSort = state.products
       .filter((p) => p.category_id === input.category_id)
@@ -316,10 +316,10 @@ export const vercelStore: DataStore = {
       addon_ids: input.addon_ids,
     });
     saveState(state);
-    return { id, products: this.getProducts(false) };
+    return { id, products: await this.getProducts(false) };
   },
 
-  updateProduct(id: number, input: ProductInput): Product[] | null {
+  async updateProduct(id: number, input: ProductInput): Promise<Product[] | null> {
     const state = loadState();
     const prod = state.products.find((p) => p.id === id);
     if (!prod) return null;
@@ -337,7 +337,7 @@ export const vercelStore: DataStore = {
     return this.getProducts(false);
   },
 
-  deleteProduct(id: number): Product[] {
+  async deleteProduct(id: number): Promise<Product[]> {
     const state = loadState();
     state.products = state.products.filter((p) => p.id !== id);
     saveState(state);
