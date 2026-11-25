@@ -51,13 +51,15 @@ export function BrandWordmark({
   return (
     <span className="inline-flex items-center gap-2.5 whitespace-nowrap shrink-0">
       {hasLogo ? (
-        <img
-          src={resolvedLogo}
-          alt={storeName}
-          referrerPolicy="no-referrer"
-          onError={() => setImgError(true)}
-          className={`${boxSize} rounded-full object-cover border border-white/15 bg-black shrink-0`}
-        />
+        <span className={`${boxSize} rounded-full overflow-hidden shrink-0 inline-block`}>
+          <img
+            src={resolvedLogo}
+            alt={storeName}
+            referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
+            className="w-full h-full object-cover scale-[1.12]"
+          />
+        </span>
       ) : (
         <BulldogLogoMark className={boxSize} />
       )}

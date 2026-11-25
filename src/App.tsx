@@ -253,11 +253,11 @@ export default function App() {
             <div className="max-w-4xl mx-auto px-4 pb-6 -mt-12 sm:-mt-14 relative z-10">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div className="flex items-end gap-4">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 border-[#0B0B0E] bg-black shrink-0 shadow-xl">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shrink-0">
                     <SafeFoodImage
                       src={settings.logo_url}
                       alt={settings.store_name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover scale-[1.12]"
                     />
                   </div>
                   <div className="pb-1">
