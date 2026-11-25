@@ -260,9 +260,10 @@ export default function App() {
                       className="w-full h-full object-cover scale-[1.12]"
                     />
                   </div>
-                  <div className="pb-1">
-                    <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-white tracking-wide uppercase leading-none">
-                      {settings.store_name}
+                  <div className="pb-1 min-w-0">
+                    <h1 className="font-display text-xl sm:text-3xl font-extrabold text-white tracking-wide uppercase leading-tight">
+                      <span className="text-orange-500">PREPARA-SE</span> PARA UMA EXPLOSÃO DE{' '}
+                      <span className="text-red-700">SABOR</span>!
                     </h1>
                     {settings.address && (
                       <p className="text-xs sm:text-sm text-zinc-300 mt-1.5 inline-flex items-center gap-1.5">
