@@ -2,27 +2,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { hashPassword } from './auth.ts';
 import type { AdminRecord, DataStore, ProductInput } from './storeTypes.ts';
-import type { Addon, Category, Product, StoreSettings, WeeklySchedule } from '../src/types.ts';
+import { DEFAULT_ADDONS_CATALOG, DEFAULT_PUBLIC_MENU } from '../src/data/defaultCatalog.ts';
+import type { Addon, Category, Product, StoreSettings } from '../src/types.ts';
 
 const TMP_BASE = '/tmp/bulldog';
 export const VERCEL_UPLOADS_DIR = path.resolve(TMP_BASE, 'uploads');
-const STORE_FILE = path.resolve(TMP_BASE, 'store.json');
+const STORE_FILE = path.resolve(TMP_BASE, 'store_v4.json');
 
 const DEFAULT_ADMIN_EMAIL = (process.env.ADMIN_INITIAL_EMAIL || 'albartholiveira@gmail.com').trim().toLowerCase();
 const DEFAULT_INITIAL_HASH =
   process.env.ADMIN_INITIAL_PASSWORD && process.env.ADMIN_INITIAL_PASSWORD.trim().length > 0
     ? hashPassword(process.env.ADMIN_INITIAL_PASSWORD.trim())
     : 'scrypt$70e739a099eab82f92508f7abe428191$479b99b6c35c99cdde2732aa3c76ee9d53880838680f88859224453a6f7cc0ae0845d7e8ca189835c6c6d57c646dc0eae4844fab6cb3d21d72f0e4976fbf3903';
-
-const DEFAULT_WEEKLY_SCHEDULE: WeeklySchedule = {
-  dom: { enabled: true, open: '18:30', close: '23:30' },
-  seg: { enabled: false, open: '18:30', close: '23:30' },
-  ter: { enabled: true, open: '18:30', close: '23:30' },
-  qua: { enabled: true, open: '18:30', close: '23:30' },
-  qui: { enabled: true, open: '18:30', close: '23:30' },
-  sex: { enabled: true, open: '18:30', close: '23:59' },
-  sab: { enabled: true, open: '18:30', close: '23:59' },
-};
 
 interface JsonStoreState {
   admins: AdminRecord[];
@@ -36,99 +27,28 @@ interface JsonStoreState {
 function createInitialState(): JsonStoreState {
   return {
     admins: [{ id: 1, email: DEFAULT_ADMIN_EMAIL, password_hash: DEFAULT_INITIAL_HASH }],
-    settings: {
-      id: 1,
-      store_name: 'Bulldog',
-      logo_url: '/assets/aistudio/logo_bulldog_ae7e998d.jpeg',
-      banner_title: 'Bulldog',
-      banner_subtitle: '',
-      banner_image_url: '/src/assets/images/hero_bulldog_burger_1795489361996.jpg',
-      about_title: 'Bulldog',
-      about_description: '',
-      about_image_url: '',
-      whatsapp_number: '3173391048',
-      address: '',
-      opening_hours: 'Terça a Domingo · 18h30 às 23h30',
-      contact_info: '(31) 7339-1048',
-      delivery_fee: 0,
-      payment_methods: ['Dinheiro', 'Pix', 'Cartão de crédito', 'Cartão de débito'],
-      store_status_mode: 'auto',
-      schedule: DEFAULT_WEEKLY_SCHEDULE,
+    settings: structuredClone(DEFAULT_PUBLIC_MENU.settings),
+    categories: structuredClone(DEFAULT_PUBLIC_MENU.categories),
+    addons: DEFAULT_ADDONS_CATALOG.map((a) => ({ id: a.id, name: a.name, price: a.price, active: a.active })),
+    products: DEFAULT_PUBLIC_MENU.products.map((p) => ({
+      id: p.id,
+      category_id: p.category_id,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      image_url: p.image_url,
+      featured: p.featured,
+      active: p.active,
+      available: p.available,
+      is_demo: p.is_demo,
+      sort_order: p.sort_order,
+      addon_ids: p.addons.map((a) => a.id),
+    })),
+    nextId: {
+      category: DEFAULT_PUBLIC_MENU.categories.length + 1,
+      addon: DEFAULT_ADDONS_CATALOG.length + 1,
+      product: DEFAULT_PUBLIC_MENU.products.length + 1,
     },
-    categories: [
-      { id: 1, name: 'Hambúrgueres', slug: 'hamburgueres', description: '', sort_order: 1, active: true },
-      { id: 2, name: 'Hot Dogs', slug: 'hot-dogs', description: '', sort_order: 2, active: true },
-    ],
-    addons: [
-      { id: 1, name: 'Bacon extra', price: 5.0, active: true },
-      { id: 2, name: 'Queijo mussarela', price: 4.0, active: true },
-      { id: 3, name: 'Cheddar cremoso', price: 4.5, active: true },
-      { id: 4, name: 'Ovo na chapa', price: 3.0, active: true },
-      { id: 5, name: 'Molho especial', price: 3.0, active: true },
-    ],
-    products: [
-      {
-        id: 1,
-        category_id: 1,
-        name: 'Bulldog Duplo',
-        description:
-          'Dois hambúrgueres na chapa, queijo derretido, alface, tomate, batata palha e molho da casa.',
-        price: 32.9,
-        image_url: '/assets/aistudio/hamburguer_1_8f1db153.jpeg',
-        featured: true,
-        active: true,
-        available: true,
-        is_demo: false,
-        sort_order: 1,
-        addon_ids: [1, 2, 3, 4, 5],
-      },
-      {
-        id: 2,
-        category_id: 1,
-        name: 'Bulldog Clássico',
-        description:
-          'Pão com gergelim, hambúrguer suculento, queijo derretido, alface, tomate, batata palha e cheddar.',
-        price: 28.9,
-        image_url: '/assets/aistudio/hamburguer_2_ace2a5d3.jpeg',
-        featured: true,
-        active: true,
-        available: true,
-        is_demo: false,
-        sort_order: 2,
-        addon_ids: [1, 2, 3, 4, 5],
-      },
-      {
-        id: 3,
-        category_id: 2,
-        name: 'Hot Dog Tradicional',
-        description:
-          'Pão macio tostado, salsicha grelhada, cheddar cremoso, bacon crocante e batata palha.',
-        price: 19.9,
-        image_url: '/src/assets/images/hotdog_bulldog_tradicional_1795489362066.jpg',
-        featured: true,
-        active: true,
-        available: true,
-        is_demo: false,
-        sort_order: 3,
-        addon_ids: [1, 2, 3, 4, 5],
-      },
-      {
-        id: 4,
-        category_id: 2,
-        name: 'Hot Dog Especial Duplo',
-        description:
-          'Duas salsichas na chapa, queijo maçaricado, bacon em cubos, cebola caramelizada e batata palha.',
-        price: 25.9,
-        image_url: '/src/assets/images/hotdog_bulldog_especial_1795489363377.jpg',
-        featured: true,
-        active: true,
-        available: true,
-        is_demo: false,
-        sort_order: 4,
-        addon_ids: [1, 2, 3, 4, 5],
-      },
-    ],
-    nextId: { category: 3, addon: 6, product: 5 },
   };
 }
 

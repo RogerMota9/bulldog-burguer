@@ -221,7 +221,7 @@ export function buildWhatsAppOrderMessage(
 export function buildWhatsAppUrl(rawPhone: string, message: string): string {
   let digits = rawPhone.replace(/\D/g, '');
   if (!digits) {
-    digits = '3173391048';
+    digits = '31973391048';
   }
   if (!digits.startsWith('55') && digits.length <= 11) {
     digits = `55${digits}`;

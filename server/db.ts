@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { hashPassword } from './auth.ts';
 import type { DataStore, ProductInput } from './storeTypes.ts';
+import { DEFAULT_ADDONS_CATALOG, DEFAULT_PUBLIC_MENU, DEFAULT_WEEKLY_SCHEDULE } from '../src/data/defaultCatalog.ts';
 import type { Addon, Category, Product, StoreSettings, StoreStatusMode, WeeklySchedule } from '../src/types.ts';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -24,15 +25,45 @@ const DEFAULT_INITIAL_HASH =
 
 export const DEFAULT_LOGO_URL = '/assets/aistudio/logo_bulldog_ae7e998d.jpeg';
 
-export const DEFAULT_WEEKLY_SCHEDULE: WeeklySchedule = {
-  dom: { enabled: true, open: '18:30', close: '23:30' },
-  seg: { enabled: false, open: '18:30', close: '23:30' },
-  ter: { enabled: true, open: '18:30', close: '23:30' },
-  qua: { enabled: true, open: '18:30', close: '23:30' },
-  qui: { enabled: true, open: '18:30', close: '23:30' },
-  sex: { enabled: true, open: '18:30', close: '23:59' },
-  sab: { enabled: true, open: '18:30', close: '23:59' },
-};
+function seedFullCatalogFromDefaults(): void {
+  const insertCat = db.prepare(
+    'INSERT INTO categories (id, name, slug, description, sort_order, active) VALUES (?, ?, ?, ?, ?, ?)',
+  );
+  for (const cat of DEFAULT_PUBLIC_MENU.categories) {
+    insertCat.run(cat.id, cat.name, cat.slug, cat.description, cat.sort_order, cat.active ? 1 : 0);
+  }
+
+  const insertAddon = db.prepare('INSERT INTO addons (id, name, price, active) VALUES (?, ?, ?, ?)');
+  for (const addon of DEFAULT_ADDONS_CATALOG) {
+    insertAddon.run(addon.id, addon.name, addon.price, addon.active ? 1 : 0);
+  }
+
+  const insertProduct = db.prepare(
+    `INSERT INTO products (
+      id, category_id, name, description, price, image_url, featured, active, available, is_demo, sort_order
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const linkAddon = db.prepare('INSERT OR IGNORE INTO product_addons (product_id, addon_id) VALUES (?, ?)');
+
+  for (const prod of DEFAULT_PUBLIC_MENU.products) {
+    insertProduct.run(
+      prod.id,
+      prod.category_id,
+      prod.name,
+      prod.description,
+      prod.price,
+      prod.image_url,
+      prod.featured ? 1 : 0,
+      prod.active ? 1 : 0,
+      prod.available ? 1 : 0,
+      prod.is_demo ? 1 : 0,
+      prod.sort_order,
+    );
+    for (const addon of prod.addons) {
+      linkAddon.run(prod.id, addon.id);
+    }
+  }
+}
 
 export function initDatabase(): void {
   db.exec(`
@@ -141,10 +172,10 @@ export function initDatabase(): void {
       'Bulldog',
       '',
       '',
-      '3173391048',
+      '31973391048',
       '',
-      'Terça a Domingo · 18h30 às 23h30',
-      '(31) 7339-1048',
+      'Todos os dias · 20:00 às 02:00',
+      '(31) 97339-1048 · @bulldog_delivery_',
       0,
       JSON.stringify(['Dinheiro', 'Pix', 'Cartão de crédito', 'Cartão de débito']),
       'auto',
@@ -154,94 +185,9 @@ export function initDatabase(): void {
 
   const categoryCount = (db.prepare('SELECT COUNT(*) AS count FROM categories').get() as { count: number }).count;
   if (categoryCount === 0) {
-    const insertCat = db.prepare(
-      'INSERT INTO categories (name, slug, description, sort_order, active) VALUES (?, ?, ?, ?, ?)',
-    );
     const seedTransaction = db.transaction(() => {
-      const c1 = insertCat.run('Hambúrgueres', 'hamburgueres', '', 1, 1);
-      const c2 = insertCat.run('Hot Dogs', 'hot-dogs', '', 2, 1);
-
-      const insertAddon = db.prepare('INSERT INTO addons (name, price, active) VALUES (?, ?, ?)');
-      const aBacon = Number(insertAddon.run('Bacon extra', 5.0, 1).lastInsertRowid);
-      const aQueijo = Number(insertAddon.run('Queijo mussarela', 4.0, 1).lastInsertRowid);
-      const aCheddar = Number(insertAddon.run('Cheddar cremoso', 4.5, 1).lastInsertRowid);
-      const aOvo = Number(insertAddon.run('Ovo na chapa', 3.0, 1).lastInsertRowid);
-      const aMolho = Number(insertAddon.run('Molho especial', 3.0, 1).lastInsertRowid);
-
-      const insertProduct = db.prepare(
-        `INSERT INTO products (
-          category_id, name, description, price, image_url, featured, active, available, is_demo, sort_order
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const linkAddon = db.prepare('INSERT INTO product_addons (product_id, addon_id) VALUES (?, ?)');
-
-      const p1 = Number(
-        insertProduct.run(
-          c1.lastInsertRowid,
-          'Bulldog Duplo',
-          'Dois hambúrgueres na chapa, queijo derretido, alface, tomate, batata palha e molho da casa.',
-          32.9,
-          '/assets/aistudio/hamburguer_1_8f1db153.jpeg',
-          1,
-          1,
-          1,
-          0,
-          1,
-        ).lastInsertRowid,
-      );
-
-      const p2 = Number(
-        insertProduct.run(
-          c1.lastInsertRowid,
-          'Bulldog Clássico',
-          'Pão com gergelim, hambúrguer suculento, queijo derretido, alface, tomate, batata palha e cheddar.',
-          28.9,
-          '/assets/aistudio/hamburguer_2_ace2a5d3.jpeg',
-          1,
-          1,
-          1,
-          0,
-          2,
-        ).lastInsertRowid,
-      );
-
-      const p3 = Number(
-        insertProduct.run(
-          c2.lastInsertRowid,
-          'Hot Dog Tradicional',
-          'Pão macio tostado, salsicha grelhada, cheddar cremoso, bacon crocante e batata palha.',
-          19.9,
-          '/src/assets/images/hotdog_bulldog_tradicional_1795489362066.jpg',
-          1,
-          1,
-          1,
-          0,
-          3,
-        ).lastInsertRowid,
-      );
-
-      const p4 = Number(
-        insertProduct.run(
-          c2.lastInsertRowid,
-          'Hot Dog Especial Duplo',
-          'Duas salsichas na chapa, queijo maçaricado, bacon em cubos, cebola caramelizada e batata palha.',
-          25.9,
-          '/src/assets/images/hotdog_bulldog_especial_1795489363377.jpg',
-          1,
-          1,
-          1,
-          0,
-          4,
-        ).lastInsertRowid,
-      );
-
-      for (const pid of [p1, p2, p3, p4]) {
-        for (const aid of [aBacon, aQueijo, aCheddar, aOvo, aMolho]) {
-          linkAddon.run(pid, aid);
-        }
-      }
+      seedFullCatalogFromDefaults();
     });
-
     seedTransaction();
   }
 
@@ -299,16 +245,31 @@ export function initDatabase(): void {
     migrateV2();
   }
 
-  const vAfter2 = (db.pragma('user_version', { simple: true }) as number) || 0;
-  if (vAfter2 < 3) {
-    db.prepare(
-      `UPDATE settings
-       SET store_name = 'Bulldog',
-           banner_title = CASE WHEN banner_title = 'Bulldog Hamburgueria' THEN 'Bulldog' ELSE banner_title END,
-           about_title = CASE WHEN about_title = 'Bulldog Hamburgueria' THEN 'Bulldog' ELSE about_title END
-       WHERE id = 1 AND store_name = 'Bulldog Hamburgueria'`,
-    ).run();
-    db.pragma('user_version = 3');
+  const vAfter3 = (db.pragma('user_version', { simple: true }) as number) || 0;
+  if (vAfter3 < 4) {
+    const migrateV4 = db.transaction(() => {
+      db.prepare(
+        `UPDATE settings SET
+          store_name = 'Bulldog',
+          banner_title = 'Bulldog',
+          about_title = 'Bulldog',
+          whatsapp_number = '31973391048',
+          opening_hours = 'Todos os dias · 20:00 às 02:00',
+          contact_info = '(31) 97339-1048 · @bulldog_delivery_',
+          schedule_json = ?
+         WHERE id = 1`,
+      ).run(JSON.stringify(DEFAULT_WEEKLY_SCHEDULE));
+
+      db.exec(`
+        DELETE FROM product_addons;
+        DELETE FROM products;
+        DELETE FROM addons;
+        DELETE FROM categories;
+      `);
+      seedFullCatalogFromDefaults();
+      db.pragma('user_version = 4');
+    });
+    migrateV4();
   }
 }
 

@@ -43,6 +43,7 @@ export default function App() {
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [menuError, setMenuError] = useState('');
   const [hoursOpen, setHoursOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number>(0);
 
   const [cart, setCart] = useState<CartItem[]>(loadStoredCart);
   const [cartOpen, setCartOpen] = useState(false);
@@ -66,7 +67,6 @@ export default function App() {
       setMenuData(data);
       setMenuError('');
     } catch {
-      // Static deployments (e.g. Vercel without Node server) fall back cleanly to the bundled catalog
       setMenuData(DEFAULT_PUBLIC_MENU);
       setMenuError('');
     } finally {
@@ -159,6 +159,19 @@ export default function App() {
   );
   const cartSubtotal = useMemo(() => getCartSubtotal(cart), [cart]);
 
+  const groupedSections = useMemo(() => {
+    if (!menuData) return [];
+    const cats = menuData.categories.filter((c) =>
+      selectedCategoryId === 0 ? true : c.id === selectedCategoryId,
+    );
+    return cats
+      .map((cat) => ({
+        category: cat,
+        items: menuData.products.filter((p) => p.category_id === cat.id),
+      }))
+      .filter((sec) => sec.items.length > 0);
+  }, [menuData, selectedCategoryId]);
+
   if (view === 'admin') {
     return (
       <AdminPanel
@@ -171,7 +184,6 @@ export default function App() {
   }
 
   const settings = menuData?.settings;
-  const products = menuData?.products || [];
   const storeStatus = settings ? getStoreOpenStatus(settings) : null;
 
   return (
@@ -316,93 +328,122 @@ export default function App() {
           </section>
 
           {/* CARDÁPIO: PRODUTOS UM ABAIXO DO OUTRO */}
-          <section id="cardapio" className="max-w-4xl mx-auto px-4 pt-6 sm:pt-8">
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-white uppercase tracking-wide">
-                Cardápio
-              </h2>
-              <span className="text-xs text-zinc-400 tabular-nums">
-                {products.length} {products.length === 1 ? 'item' : 'itens'}
-              </span>
+          <section id="cardapio" className="max-w-4xl mx-auto px-4 pt-6 sm:pt-8 space-y-6">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryId(0)}
+                className={`min-h-[38px] px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                  selectedCategoryId === 0
+                    ? 'bg-red-600 text-white'
+                    : 'bg-[#141418] border border-white/10 text-zinc-300 hover:text-white'
+                }`}
+              >
+                Todos
+              </button>
+              {menuData.categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  className={`min-h-[38px] px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                    selectedCategoryId === cat.id
+                      ? 'bg-red-600 text-white'
+                      : 'bg-[#141418] border border-white/10 text-zinc-300 hover:text-white'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
             </div>
 
-            {products.length === 0 ? (
+            {groupedSections.length === 0 ? (
               <div className="rounded-2xl bg-[#141418] border border-white/10 p-8 text-center text-sm text-zinc-400">
                 Nenhum produto disponível no momento.
               </div>
             ) : (
-              <div className="flex flex-col gap-3.5">
-                {products.map((product) => (
-                  <article
-                    key={product.id}
-                    onClick={() => {
-                      if (!product.available) return;
-                      setEditingCartItem(null);
-                      setActiveProduct(product);
-                    }}
-                    className={`rounded-2xl bg-[#141418] border border-white/10 p-3.5 sm:p-4 flex items-stretch gap-4 sm:gap-5 transition-colors ${
-                      product.available
-                        ? 'hover:border-red-500/60 hover:bg-[#19191F] cursor-pointer'
-                        : 'opacity-60'
-                    }`}
-                  >
-                    <div className="w-28 h-28 sm:w-40 sm:h-36 rounded-xl overflow-hidden bg-zinc-950 shrink-0 border border-white/5">
-                      <SafeFoodImage
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+              <div className="space-y-9">
+                {groupedSections.map(({ category, items }) => (
+                  <div key={category.id} className="space-y-3.5">
+                    <h2 className="font-display text-2xl sm:text-3xl font-bold text-white uppercase tracking-wide pb-2 border-b border-white/10">
+                      {category.name}
+                    </h2>
 
-                    <div className="flex-1 min-w-0 flex flex-col justify-between gap-2">
-                      <div>
-                        {!product.available && (
-                          <p className="text-xs text-amber-400 font-medium mb-0.5">
-                            Indisponível no momento
-                          </p>
-                        )}
-                        <h3 className="text-base sm:text-xl font-semibold text-white leading-snug">
-                          {product.name}
-                        </h3>
-                        {product.description && (
-                          <p className="text-xs sm:text-sm text-zinc-300 mt-1.5 leading-relaxed line-clamp-3">
-                            {product.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
-                        <span className="font-mono text-base sm:text-lg font-bold text-white tabular-nums">
-                          {formatCurrency(product.price)}
-                        </span>
-
-                        <button
-                          type="button"
-                          disabled={!product.available}
-                          onClick={(e) => {
-                            e.stopPropagation();
+                    <div className="flex flex-col gap-3.5">
+                      {items.map((product) => (
+                        <article
+                          key={product.id}
+                          onClick={() => {
                             if (!product.available) return;
                             setEditingCartItem(null);
                             setActiveProduct(product);
                           }}
-                          className={`min-h-[40px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                          className={`rounded-2xl bg-[#141418] border border-white/10 p-3.5 sm:p-4 flex items-stretch gap-4 sm:gap-5 transition-colors ${
                             product.available
-                              ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
-                              : 'bg-zinc-800 text-zinc-400 cursor-not-allowed'
+                              ? 'hover:border-red-500/60 hover:bg-[#19191F] cursor-pointer'
+                              : 'opacity-60'
                           }`}
                         >
-                          {product.available ? (
-                            <>
-                              <Plus className="w-4 h-4" />
-                              <span>Adicionar</span>
-                            </>
-                          ) : (
-                            <span>Indisponível</span>
-                          )}
-                        </button>
-                      </div>
+                          <div className="w-28 h-28 sm:w-40 sm:h-36 rounded-xl overflow-hidden bg-zinc-950 shrink-0 border border-white/5">
+                            <SafeFoodImage
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+
+                          <div className="flex-1 min-w-0 flex flex-col justify-between gap-2">
+                            <div>
+                              {!product.available && (
+                                <p className="text-xs text-amber-400 font-medium mb-0.5">
+                                  Indisponível no momento
+                                </p>
+                              )}
+                              <h3 className="text-base sm:text-xl font-semibold text-white leading-snug">
+                                {product.name}
+                              </h3>
+                              {product.description && (
+                                <p className="text-xs sm:text-sm text-zinc-300 mt-1.5 leading-relaxed">
+                                  {product.description}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+                              <span className="font-mono text-base sm:text-lg font-bold text-white tabular-nums">
+                                {formatCurrency(product.price)}
+                              </span>
+
+                              <button
+                                type="button"
+                                disabled={!product.available}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!product.available) return;
+                                  setEditingCartItem(null);
+                                  setActiveProduct(product);
+                                }}
+                                className={`min-h-[40px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                                  product.available
+                                    ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
+                                    : 'bg-zinc-800 text-zinc-400 cursor-not-allowed'
+                                }`}
+                              >
+                                {product.available ? (
+                                  <>
+                                    <Plus className="w-4 h-4" />
+                                    <span>Adicionar</span>
+                                  </>
+                                ) : (
+                                  <span>Indisponível</span>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
                     </div>
-                  </article>
+                  </div>
                 ))}
               </div>
             )}
@@ -413,7 +454,10 @@ export default function App() {
       {/* FOOTER DISCRETO */}
       <footer className="border-t border-white/10 bg-[#09090B] py-5 px-4 mb-14 md:mb-0">
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
-          <span>{settings?.store_name || 'Bulldog'}</span>
+          <span>
+            {settings?.store_name || 'Bulldog'}
+            {settings?.contact_info ? ` · ${settings.contact_info}` : ''}
+          </span>
           <button
             type="button"
             onClick={navigateToAdmin}
