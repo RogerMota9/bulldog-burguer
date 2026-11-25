@@ -76,6 +76,23 @@ interface SafeFoodImageProps {
   className?: string;
 }
 
+export function getFoodImagePositionClass(src: string): string {
+  if (src.includes('hamburguer_4_pdf_p2')) return 'object-[45%_84%]';
+  if (src.includes('hamburguer_3_pdf_p1')) return 'object-[50%_54%]';
+  if (src.includes('hamburguer_1_8f1db153')) return 'object-[50%_66%]';
+  if (src.includes('hamburguer_2_ace2a5d3')) return 'object-[45%_78%]';
+  return 'object-center';
+}
+
+export function isPortraitBurgerPhoto(src: string): boolean {
+  return (
+    src.includes('hamburguer_1_8f1db153') ||
+    src.includes('hamburguer_2_ace2a5d3') ||
+    src.includes('hamburguer_3_pdf_p1') ||
+    src.includes('hamburguer_4_pdf_p2')
+  );
+}
+
 export function SafeFoodImage({ src, alt, className = '' }: SafeFoodImageProps) {
   const [failed, setFailed] = useState(false);
   const valid = isSafeMediaUrl(src) && !failed;
@@ -91,13 +108,15 @@ export function SafeFoodImage({ src, alt, className = '' }: SafeFoodImageProps) 
     );
   }
 
+  const posClass = getFoodImagePositionClass(src);
+
   return (
     <img
       src={src}
       alt={alt}
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
-      className={className}
+      className={`${posClass} ${className}`}
     />
   );
 }

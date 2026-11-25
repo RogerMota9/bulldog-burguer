@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, Minus, Plus, X } from 'lucide-react';
 import type { Addon, CartItem, Product } from '../types';
 import { formatCurrency } from '../utils/format';
-import { SafeFoodImage } from './BulldogLogo';
+import { isPortraitBurgerPhoto, SafeFoodImage } from './BulldogLogo';
 
 interface ProductModalProps {
   product: Product | null;
@@ -68,6 +68,8 @@ export function ProductModal({ product, editingCartItem, onClose, onConfirm }: P
     });
   };
 
+  const portraitBurger = isPortraitBurgerPhoto(product.image_url);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4"
@@ -80,18 +82,33 @@ export function ProductModal({ product, editingCartItem, onClose, onConfirm }: P
         className="w-full sm:max-w-xl max-h-[92vh] flex flex-col bg-[#141418] border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative h-56 sm:h-64 shrink-0 bg-zinc-950">
-          <SafeFoodImage
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#141418] via-black/25 to-transparent" />
+        <div className="relative h-60 sm:h-72 shrink-0 bg-zinc-950 overflow-hidden flex items-center justify-center">
+          {portraitBurger ? (
+            <>
+              <SafeFoodImage
+                src={product.image_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover blur-xl opacity-35 scale-110 pointer-events-none"
+              />
+              <SafeFoodImage
+                src={product.image_url}
+                alt={product.name}
+                className="relative z-10 h-full w-auto max-w-full object-contain py-2"
+              />
+            </>
+          ) : (
+            <SafeFoodImage
+              src={product.image_url}
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+          )}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#141418] via-transparent to-transparent pointer-events-none" />
           <button
             type="button"
             onClick={onClose}
             aria-label="Fechar detalhes do produto"
-            className="absolute top-3 right-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-black/70 text-white hover:bg-red-600 transition-colors cursor-pointer"
+            className="absolute top-3 right-3 z-20 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-black/70 text-white hover:bg-red-600 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
