@@ -6,6 +6,12 @@ export interface AdminRecord {
   password_hash: string;
 }
 
+export interface AdminSessionRecord {
+  token_hash: string;
+  email: string;
+  expires_at: number;
+}
+
 export interface ProductInput {
   category_id: number;
   name: string;
@@ -23,6 +29,10 @@ export interface DataStore {
   uploadsDir: string;
   getAdminByEmail(email: string): AdminRecord | undefined;
   updateAdminPassword(email: string, newHash: string): void;
+  saveSession(tokenHash: string, email: string, expiresAt: number): void;
+  getSessionByTokenHash(tokenHash: string): AdminSessionRecord | undefined;
+  deleteSession(tokenHash: string): void;
+  deleteSessionsByEmail(email: string): void;
   getSettings(): StoreSettings;
   updateSettings(settings: StoreSettings): StoreSettings;
   getCategories(onlyActive?: boolean): Category[];

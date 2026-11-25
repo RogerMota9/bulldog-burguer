@@ -2,7 +2,15 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import { hashPassword, requireAdmin, signToken, verifyPassword, verifyToken } from './auth.ts';
+import {
+  createRequireAdmin,
+  hashPassword,
+  hashSessionToken,
+  signToken,
+  TOKEN_TTL_MS,
+  verifyAdminToken,
+  verifyPassword,
+} from './auth.ts';
 import type { AuthenticatedRequest } from './auth.ts';
 import type { DataStore } from './storeTypes.ts';
 
@@ -25,8 +33,13 @@ function parsePositivePrice(val: unknown): number | null {
 
 export function createApiRouter(store: DataStore): express.Router {
   const router = express.Router();
+  const requireAdmin = createRequireAdmin(store);
 
   // --- PUBLIC API ---
+  router.get('/health', (_req, res) => {
+    res.json({ ok: true });
+  });
+
   router.get('/menu', (_req, res) => {
     try {
       const settings = store.getSettings();
@@ -56,7 +69,19 @@ export function createApiRouter(store: DataStore): express.Router {
     }
 
     const token = signToken(admin.email);
+    store.saveSession(hashSessionToken(token), admin.email, Date.now() + TOKEN_TTL_MS);
     res.json({ token, email: admin.email });
+  });
+
+  router.post('/auth/logout', (req, res) => {
+    const header = req.headers.authorization;
+    if (header && header.startsWith('Bearer ')) {
+      const token = header.slice('Bearer '.length).trim();
+      if (token) {
+        store.deleteSession(hashSessionToken(token));
+      }
+    }
+    res.json({ ok: true });
   });
 
   router.get('/auth/me', (req, res) => {
@@ -65,12 +90,12 @@ export function createApiRouter(store: DataStore): express.Router {
       res.status(401).json({ error: 'Não autenticado.' });
       return;
     }
-    const payload = verifyToken(header.slice('Bearer '.length).trim());
-    if (!payload) {
+    const email = verifyAdminToken(header.slice('Bearer '.length).trim(), store);
+    if (!email) {
       res.status(401).json({ error: 'Sessão expirada.' });
       return;
     }
-    res.json({ email: payload.email });
+    res.json({ email });
   });
 
   router.post('/admin/change-password', requireAdmin, (req: AuthenticatedRequest, res) => {

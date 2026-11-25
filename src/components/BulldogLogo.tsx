@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Utensils } from 'lucide-react';
 import { isSafeMediaUrl } from '../utils/format';
 
@@ -43,6 +43,9 @@ export function BrandWordmark({
 }: BulldogLogoProps) {
   const [imgError, setImgError] = useState(false);
   const resolvedLogo = logoUrl || '/assets/aistudio/logo_bulldog_ae7e998d.jpeg';
+  useEffect(() => {
+    setImgError(false);
+  }, [resolvedLogo]);
   const hasLogo = isSafeMediaUrl(resolvedLogo) && !imgError;
 
   const boxSize = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-14 h-14' : 'w-10 h-10';
@@ -97,6 +100,9 @@ export function isPortraitBurgerPhoto(src: string): boolean {
 
 export function SafeFoodImage({ src, alt, className = '' }: SafeFoodImageProps) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
   const valid = isSafeMediaUrl(src) && !failed;
 
   if (!valid) {

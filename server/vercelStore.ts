@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { hashPassword } from './auth.ts';
-import type { AdminRecord, DataStore, ProductInput } from './storeTypes.ts';
+import type { AdminRecord, AdminSessionRecord, DataStore, ProductInput } from './storeTypes.ts';
 import { DEFAULT_ADDONS_CATALOG, DEFAULT_PUBLIC_MENU } from '../src/data/defaultCatalog.ts';
 import type { Addon, Category, Product, StoreSettings } from '../src/types.ts';
 
@@ -17,6 +17,7 @@ const DEFAULT_INITIAL_HASH =
 
 interface JsonStoreState {
   admins: AdminRecord[];
+  sessions?: AdminSessionRecord[];
   settings: StoreSettings;
   categories: Category[];
   addons: Array<{ id: number; name: string; price: number; active: boolean }>;
@@ -115,6 +116,38 @@ export const vercelStore: DataStore = {
       admin.password_hash = newHash;
       saveState(state);
     }
+  },
+
+  saveSession(tokenHash: string, email: string, expiresAt: number): void {
+    const state = loadState();
+    const now = Date.now();
+    state.sessions = (state.sessions || []).filter((s) => s.expires_at > now && s.token_hash !== tokenHash);
+    state.sessions.push({ token_hash: tokenHash, email, expires_at: expiresAt });
+    saveState(state);
+  },
+
+  getSessionByTokenHash(tokenHash: string): AdminSessionRecord | undefined {
+    const state = loadState();
+    const found = (state.sessions || []).find((s) => s.token_hash === tokenHash);
+    if (!found) return undefined;
+    if (found.expires_at <= Date.now()) {
+      state.sessions = (state.sessions || []).filter((s) => s.token_hash !== tokenHash);
+      saveState(state);
+      return undefined;
+    }
+    return found;
+  },
+
+  deleteSession(tokenHash: string): void {
+    const state = loadState();
+    state.sessions = (state.sessions || []).filter((s) => s.token_hash !== tokenHash);
+    saveState(state);
+  },
+
+  deleteSessionsByEmail(email: string): void {
+    const state = loadState();
+    state.sessions = (state.sessions || []).filter((s) => s.email !== email);
+    saveState(state);
   },
 
   getSettings(): StoreSettings {

@@ -6,7 +6,9 @@ import type { DataStore, ProductInput } from './storeTypes.ts';
 import { DEFAULT_ADDONS_CATALOG, DEFAULT_PUBLIC_MENU, DEFAULT_WEEKLY_SCHEDULE } from '../src/data/defaultCatalog.ts';
 import type { Addon, Category, Product, StoreSettings, StoreStatusMode, WeeklySchedule } from '../src/types.ts';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.resolve(process.cwd(), 'data');
 export const UPLOADS_DIR = path.resolve(DATA_DIR, 'uploads');
 const DB_PATH = path.resolve(DATA_DIR, 'bulldog.db');
 
@@ -132,6 +134,12 @@ export function initDatabase(): void {
       PRIMARY KEY (product_id, addon_id),
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
       FOREIGN KEY (addon_id) REFERENCES addons(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+      token_hash TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      expires_at INTEGER NOT NULL
     );
   `);
 
@@ -489,6 +497,35 @@ export const sqliteStore: DataStore = {
       newHash,
       email,
     );
+  },
+
+  saveSession(tokenHash: string, email: string, expiresAt: number) {
+    db.prepare('DELETE FROM admin_sessions WHERE expires_at <= ?').run(Date.now());
+    db.prepare('INSERT OR REPLACE INTO admin_sessions (token_hash, email, expires_at) VALUES (?, ?, ?)').run(
+      tokenHash,
+      email,
+      expiresAt,
+    );
+  },
+
+  getSessionByTokenHash(tokenHash: string) {
+    const row = db
+      .prepare('SELECT token_hash, email, expires_at FROM admin_sessions WHERE token_hash = ?')
+      .get(tokenHash) as { token_hash: string; email: string; expires_at: number } | undefined;
+    if (!row) return undefined;
+    if (row.expires_at <= Date.now()) {
+      db.prepare('DELETE FROM admin_sessions WHERE token_hash = ?').run(tokenHash);
+      return undefined;
+    }
+    return row;
+  },
+
+  deleteSession(tokenHash: string) {
+    db.prepare('DELETE FROM admin_sessions WHERE token_hash = ?').run(tokenHash);
+  },
+
+  deleteSessionsByEmail(email: string) {
+    db.prepare('DELETE FROM admin_sessions WHERE email = ?').run(email);
   },
 
   getSettings,

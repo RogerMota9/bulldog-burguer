@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+import type { DataStore } from './storeTypes.ts';
 
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
-const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+export const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
 export interface AuthTokenPayload {
   email: string;
@@ -35,6 +36,10 @@ export function verifyPassword(password: string, storedHash: string): boolean {
     return false;
   }
   return crypto.timingSafeEqual(derived, original);
+}
+
+export function hashSessionToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function base64UrlEncode(input: string | Buffer): string {
@@ -99,18 +104,34 @@ export function verifyToken(token: string): AuthTokenPayload | null {
   }
 }
 
-export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Autenticação necessária.' });
-    return;
-  }
-  const token = header.slice('Bearer '.length).trim();
+export function verifyAdminToken(token: string, store?: DataStore): string | null {
   const payload = verifyToken(token);
-  if (!payload) {
-    res.status(401).json({ error: 'Sessão inválida ou expirada. Faça login novamente.' });
-    return;
+  if (payload) {
+    return payload.email;
   }
-  req.adminEmail = payload.email;
-  next();
+  if (store) {
+    const stored = store.getSessionByTokenHash(hashSessionToken(token));
+    if (stored && stored.expires_at > Date.now()) {
+      return stored.email;
+    }
+  }
+  return null;
+}
+
+export function createRequireAdmin(store?: DataStore) {
+  return function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Autenticação necessária.' });
+      return;
+    }
+    const token = header.slice('Bearer '.length).trim();
+    const email = verifyAdminToken(token, store);
+    if (!email) {
+      res.status(401).json({ error: 'Sessão inválida ou expirada. Faça login novamente.' });
+      return;
+    }
+    req.adminEmail = email;
+    next();
+  };
 }

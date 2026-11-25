@@ -35,6 +35,50 @@ interface AdminPanelProps {
 
 type AdminTab = 'dashboard' | 'products' | 'categories' | 'addons' | 'settings' | 'security';
 
+async function readAndCompressImage(file: File): Promise<string> {
+  const rawDataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Falha ao ler o arquivo.'));
+    reader.readAsDataURL(file);
+  });
+
+  if (file.type === 'image/gif' || file.size <= 350 * 1024) {
+    return rawDataUrl;
+  }
+
+  return new Promise<string>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1280;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(rawDataUrl);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      const outMime = file.type === 'image/png' ? 'image/webp' : 'image/jpeg';
+      const compressed = canvas.toDataURL(outMime, 0.82);
+      resolve(compressed.length < rawDataUrl.length ? compressed : rawDataUrl);
+    };
+    img.onerror = () => resolve(rawDataUrl);
+    img.src = rawDataUrl;
+  });
+}
+
 export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
   // Token kept strictly in React memory (never localStorage/sessionStorage)
   const [token, setToken] = useState<string | null>(null);
@@ -111,7 +155,15 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
       if (res.status === 401) {
         setToken(null);
         setOverview(null);
+        setLoginError('Sessão expirada. Faça login novamente.');
         throw new Error('Sessão expirada. Faça login novamente.');
+      }
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        if (res.status === 413) {
+          throw new Error('A imagem é muito grande para envio.');
+        }
+        throw new Error('Resposta inválida do servidor.');
       }
       const data = await res.json();
       if (!res.ok) {
@@ -162,6 +214,7 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
         setLoginError(data.error || 'Credenciais inválidas.');
         return;
       }
+      setBannerNotice(null);
       setToken(data.token);
       setAdminEmail(data.email);
       setLoginPassword('');
@@ -180,19 +233,14 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
       showNotice('err', 'Selecione um arquivo de imagem válido (PNG, JPG, WEBP).');
       return;
     }
-    if (file.size > 4.5 * 1024 * 1024) {
-      showNotice('err', 'A imagem deve ter no máximo 4,5 MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      showNotice('err', 'A imagem original deve ter no máximo 15 MB.');
       return;
     }
 
     setUploadingImage(true);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('Falha ao ler o arquivo.'));
-        reader.readAsDataURL(file);
-      });
+      const dataUrl = await readAndCompressImage(file);
 
       const data = (await authFetch('/api/admin/upload', {
         method: 'POST',
@@ -538,6 +586,12 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
           <button
             type="button"
             onClick={() => {
+              if (token) {
+                void fetch('/api/auth/logout', {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${token}` },
+                }).catch(() => {});
+              }
               setToken(null);
               setOverview(null);
             }}
@@ -1029,6 +1083,7 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
                             className="hidden"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
+                              e.target.value = '';
                               if (file) {
                                 void handleImageFileUpload(file, (url) =>
                                   setSettingsForm((prev) => (prev ? { ...prev, logo_url: url } : prev)),
@@ -1232,6 +1287,7 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
                             className="hidden"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
+                              e.target.value = '';
                               if (file) {
                                 void handleImageFileUpload(file, (url) =>
                                   setSettingsForm((prev) =>
@@ -1467,6 +1523,7 @@ export function AdminPanel({ onBackToMenu, onDataChanged }: AdminPanelProps) {
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
+                          e.target.value = '';
                           if (file) {
                             void handleImageFileUpload(file, (url) =>
                               setProdForm((prev) => ({ ...prev, image_url: url })),
