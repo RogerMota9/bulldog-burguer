@@ -178,14 +178,14 @@ export function CartDrawer({
                 <span>Subtotal dos itens</span>
                 <span className="font-mono tabular-nums">{formatCurrency(subtotal)}</span>
               </div>
-              {deliveryFee > 0 && (
-                <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <span>Taxa de entrega (se optar por entrega)</span>
-                  <span className="font-mono tabular-nums">{formatCurrency(deliveryFee)}</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span>Taxa de entrega (por bairro)</span>
+                <span className="font-mono tabular-nums">
+                  {deliveryFee > 0 ? formatCurrency(deliveryFee) : 'R$ 5,00 a R$ 8,00'}
+                </span>
+              </div>
               <div className="flex items-center justify-between text-base font-bold text-white pt-1.5 border-t border-white/10">
-                <span>Total estimado</span>
+                <span>Subtotal</span>
                 <span className="font-mono tabular-nums text-red-400">
                   {formatCurrency(subtotal)}
                 </span>

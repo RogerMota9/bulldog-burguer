@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Copy, ExternalLink, MapPin, Store, X } from 'lucide-react';
+import { ArrowLeft, Check, Clock, Copy, ExternalLink, MapPin, Store, X } from 'lucide-react';
+import {
+  DELIVERY_TIERS,
+  getDeliveryFeeForNeighborhood,
+  OTHER_NEIGHBORHOOD_VALUE,
+} from '../data/deliveryZones';
 import type { CartItem, CheckoutFormData, StoreSettings } from '../types';
 import {
   buildWhatsAppOrderMessage,
@@ -21,6 +26,7 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
   const [step, setStep] = useState<'form' | 'summary'>('form');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [orderSent, setOrderSent] = useState(false);
 
   const [form, setForm] = useState<CheckoutFormData>({
     customerName: '',
@@ -40,6 +46,7 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
       setStep('form');
       setError('');
       setCopied(false);
+      setOrderSent(false);
       setForm((prev) => ({
         ...prev,
         paymentMethod: settings.payment_methods.includes(prev.paymentMethod)
@@ -52,8 +59,18 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
   if (!open) return null;
 
   const subtotal = getCartSubtotal(items);
-  const deliveryFee = form.deliveryType === 'entrega' ? settings.delivery_fee : 0;
-  const grandTotal = subtotal + deliveryFee;
+  const neighborhoodFee = getDeliveryFeeForNeighborhood(form.neighborhood);
+  const deliveryFee: number | null =
+    form.deliveryType === 'retirada'
+      ? 0
+      : form.neighborhood === OTHER_NEIGHBORHOOD_VALUE
+        ? null
+        : neighborhoodFee !== null
+          ? neighborhoodFee
+          : settings.delivery_fee > 0
+            ? settings.delivery_fee
+            : null;
+  const grandTotal = subtotal + (deliveryFee ?? 0);
   const isCash = form.paymentMethod.toLowerCase().includes('dinheiro');
 
   const handleReview = (e: React.FormEvent) => {
@@ -79,13 +96,14 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
       return;
     }
 
+    setOrderSent(false);
     setStep('summary');
   };
 
   const orderMessage = buildWhatsAppOrderMessage(
     items,
     form,
-    settings.delivery_fee,
+    deliveryFee,
     settings.store_name,
   );
   const whatsappUrl = buildWhatsAppUrl(settings.whatsapp_number, orderMessage);
@@ -239,15 +257,27 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
                     <label htmlFor="checkout-neighborhood" className="block text-xs font-semibold text-zinc-300 mb-1.5">
                       Bairro *
                     </label>
-                    <input
+                    <select
                       id="checkout-neighborhood"
-                      type="text"
                       required
                       value={form.neighborhood}
                       onChange={(e) => setForm({ ...form, neighborhood: e.target.value })}
-                      placeholder="Nome do bairro"
-                      className="w-full min-h-[44px] rounded-xl bg-zinc-950 border border-white/10 px-3.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-red-500"
-                    />
+                      className="w-full min-h-[44px] rounded-xl bg-zinc-950 border border-white/10 px-3 text-sm text-white focus:outline-none focus:border-red-500 cursor-pointer"
+                    >
+                      <option value="">Selecione seu bairro...</option>
+                      {DELIVERY_TIERS.map((tier) => (
+                        <optgroup key={tier.fee} label={tier.label}>
+                          {tier.neighborhoods.map((name) => (
+                            <option key={name} value={name}>
+                              {name} — {formatCurrency(tier.fee)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                      <optgroup label="Outras regiões">
+                        <option value={OTHER_NEIGHBORHOOD_VALUE}>{OTHER_NEIGHBORHOOD_VALUE}</option>
+                      </optgroup>
+                    </select>
                   </div>
                   <div>
                     <label htmlFor="checkout-reference" className="block text-xs font-semibold text-zinc-300 mb-1.5">
@@ -262,6 +292,23 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
                       className="w-full min-h-[44px] rounded-xl bg-zinc-950 border border-white/10 px-3.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-red-500"
                     />
                   </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-zinc-950/70 border border-white/5 px-3.5 py-2.5 text-xs">
+                  {form.neighborhood ? (
+                    <>
+                      <span className="text-zinc-300">
+                        Taxa de entrega ({form.neighborhood})
+                      </span>
+                      <span className="font-mono font-semibold text-amber-300 tabular-nums">
+                        {deliveryFee !== null ? formatCurrency(deliveryFee) : 'A confirmar'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-zinc-400">
+                      Taxas de entrega: R$ 5,00 · R$ 6,00 · R$ 8,00 conforme o bairro selecionado.
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -356,7 +403,13 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
 
             <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs text-zinc-400">Total do pedido</p>
+                <p className="text-xs text-zinc-400">
+                  {form.deliveryType === 'entrega'
+                    ? deliveryFee !== null
+                      ? `Total com entrega (${formatCurrency(deliveryFee)})`
+                      : 'Subtotal dos itens (+ taxa do bairro)'
+                    : 'Total do pedido'}
+                </p>
                 <p className="font-mono text-xl font-bold text-white tabular-nums">
                   {formatCurrency(grandTotal)}
                 </p>
@@ -439,14 +492,16 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
                       : ''}
                   </span>
                 </div>
-                {deliveryFee > 0 && (
+                {form.deliveryType === 'entrega' && (
                   <div className="flex justify-between text-zinc-300">
                     <span>Taxa de entrega</span>
-                    <span className="font-mono tabular-nums">{formatCurrency(deliveryFee)}</span>
+                    <span className="font-mono tabular-nums">
+                      {deliveryFee !== null ? formatCurrency(deliveryFee) : 'A confirmar'}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-base font-bold text-white pt-1.5 border-t border-white/10">
-                  <span>Total do pedido</span>
+                  <span>{deliveryFee === null && form.deliveryType === 'entrega' ? 'Subtotal dos itens' : 'Total do pedido'}</span>
                   <span className="font-mono tabular-nums text-red-400">
                     {formatCurrency(grandTotal)}
                   </span>
@@ -482,8 +537,24 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
               </pre>
             </div>
 
-            <div className="rounded-xl bg-zinc-900/70 border border-white/10 px-4 py-3 text-xs text-zinc-300 leading-relaxed">
-              Ao clicar no botão abaixo, o WhatsApp será aberto com o seu pedido preenchido. A confirmação do pedido depende do envio da mensagem e do atendimento da hamburgueria.
+            <div
+              className={`rounded-xl border px-4 py-3 text-xs leading-relaxed flex items-start gap-2.5 ${
+                orderSent
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-100'
+              }`}
+            >
+              <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-300" aria-hidden="true" />
+              <div>
+                <p className="font-semibold text-white">
+                  {orderSent
+                    ? 'Pedido enviado para o WhatsApp! Aguarde a confirmação do pedido.'
+                    : 'Aguarde a confirmação do pedido.'}
+                </p>
+                <p className="mt-0.5 text-zinc-300">
+                  Ao clicar no botão abaixo, o WhatsApp será aberto com seu pedido preenchido. Envie a mensagem e aguarde a confirmação do nosso atendimento.
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
@@ -491,6 +562,7 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => setOrderSent(true)}
                 className="flex-1 min-h-[50px] px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
               >
                 <span>Enviar pedido pelo WhatsApp</span>

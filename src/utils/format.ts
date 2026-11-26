@@ -144,11 +144,13 @@ export function getCartSubtotal(items: CartItem[]): number {
 export function buildWhatsAppOrderMessage(
   items: CartItem[],
   form: CheckoutFormData,
-  deliveryFee: number,
+  deliveryFee: number | null,
   storeName: string,
 ): string {
   const subtotal = getCartSubtotal(items);
-  const appliedDeliveryFee = form.deliveryType === 'entrega' ? deliveryFee : 0;
+  const isDelivery = form.deliveryType === 'entrega';
+  const appliedDeliveryFee = isDelivery ? (deliveryFee ?? 0) : 0;
+  const isFeePending = isDelivery && deliveryFee === null;
   const total = subtotal + appliedDeliveryFee;
 
   const lines: string[] = [];
@@ -158,9 +160,9 @@ export function buildWhatsAppOrderMessage(
   lines.push(`Telefone: ${form.customerPhone.trim()}`);
   lines.push('');
   lines.push('TIPO DE PEDIDO:');
-  lines.push(form.deliveryType === 'entrega' ? 'Entrega.' : 'Retirada no estabelecimento.');
+  lines.push(isDelivery ? 'Entrega.' : 'Retirada no estabelecimento.');
 
-  if (form.deliveryType === 'entrega') {
+  if (isDelivery) {
     lines.push('');
     lines.push('ENDEREÇO:');
     const addrParts = [form.streetAddress.trim(), form.neighborhood.trim()].filter(Boolean);
@@ -206,14 +208,22 @@ export function buildWhatsAppOrderMessage(
     lines.push(form.generalNotes.trim());
   }
 
-  if (appliedDeliveryFee > 0) {
+  if (isDelivery) {
     lines.push('');
-    lines.push(`Taxa de entrega: ${formatCurrency(appliedDeliveryFee)}`);
+    if (isFeePending) {
+      lines.push('Taxa de entrega: A confirmar conforme o bairro');
+    } else if (appliedDeliveryFee > 0) {
+      lines.push(`Taxa de entrega: ${formatCurrency(appliedDeliveryFee)}`);
+    }
   }
 
   lines.push('');
   lines.push('-------------------------');
-  lines.push(`TOTAL DO PEDIDO: ${formatCurrency(total)}`);
+  lines.push(
+    isFeePending
+      ? `TOTAL DOS ITENS: ${formatCurrency(total)} (+ taxa de entrega)`
+      : `TOTAL DO PEDIDO: ${formatCurrency(total)}`,
+  );
 
   return lines.join('\n');
 }
