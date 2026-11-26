@@ -36,7 +36,8 @@ export const DELIVERY_TIERS: DeliveryTier[] = [
     fee: 6,
     label: 'Taxa de R$ 6,00',
     neighborhoods: [
-      'Adelmolândia 1 e 2',
+      'Adelmolândia 1',
+      'Adelmolândia 2',
       'Caieiras',
       'Catita',
       'Fogo Apagou',
@@ -51,7 +52,9 @@ export const DELIVERY_TIERS: DeliveryTier[] = [
     neighborhoods: [
       'Pompeu',
       'Roça Grande',
-      'Rosário 1, 2 e 3',
+      'Rosário 1',
+      'Rosário 2',
+      'Rosário 3',
     ],
   },
 ];

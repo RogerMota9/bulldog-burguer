@@ -58,7 +58,10 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
 
   if (!open) return null;
 
+  const MIN_ORDER_VALUE = 20;
   const subtotal = getCartSubtotal(items);
+  const missingForMinOrder = Math.max(0, MIN_ORDER_VALUE - subtotal);
+  const belowMinOrder = missingForMinOrder > 0;
   const neighborhoodFee = getDeliveryFeeForNeighborhood(form.neighborhood);
   const deliveryFee: number | null =
     form.deliveryType === 'retirada'
@@ -77,6 +80,12 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
     e.preventDefault();
     setError('');
 
+    if (belowMinOrder) {
+      setError(
+        `O pedido mínimo é de ${formatCurrency(MIN_ORDER_VALUE)}. Faltam ${formatCurrency(missingForMinOrder)} em itens para finalizar.`,
+      );
+      return;
+    }
     if (!form.customerName.trim()) {
       setError('Informe seu nome completo.');
       return;
@@ -399,6 +408,23 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
                 placeholder="Ex: Tocar interfone 12, enviar sachês de ketchup..."
                 className="w-full rounded-xl bg-zinc-900 border border-white/10 px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-red-500"
               />
+            </div>
+
+            <div
+              className={`rounded-xl border px-3.5 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2 ${
+                belowMinOrder
+                  ? 'bg-amber-500/10 border-amber-500/35 text-amber-200'
+                  : 'bg-zinc-900/70 border-white/10 text-zinc-300'
+              }`}
+            >
+              <span className="font-semibold">
+                Pedido mínimo: {formatCurrency(MIN_ORDER_VALUE)}
+              </span>
+              {belowMinOrder && (
+                <span className="text-amber-300">
+                  Faltam {formatCurrency(missingForMinOrder)} em itens para finalizar
+                </span>
+              )}
             </div>
 
             <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-4">
