@@ -1,10 +1,19 @@
 import 'dotenv/config';
 import path from 'node:path';
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
+import { createServer as createViteServer, type ViteDevServer } from 'vite';
 import { initDatabase, sqliteStore, UPLOADS_DIR } from './server/db.ts';
 import { pgStore } from './server/pgStore.ts';
 import { createApiRouter } from './server/routes.ts';
+
+function getCliArg(flag: string): string | undefined {
+  const idx = process.argv.indexOf(flag);
+  if (idx !== -1 && process.argv[idx + 1]) {
+    return process.argv[idx + 1];
+  }
+  const withEquals = process.argv.find((arg) => arg.startsWith(`${flag}=`));
+  return withEquals ? withEquals.slice(flag.length + 1) : undefined;
+}
 
 const hasPostgres = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
 if (!hasPostgres) {
@@ -13,7 +22,8 @@ if (!hasPostgres) {
 const activeStore = hasPostgres ? pgStore : sqliteStore;
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(getCliArg('--port') || process.env.PORT || 3000);
+const HOST = getCliArg('--host') || '0.0.0.0';
 
 app.set('trust proxy', true);
 app.use(express.json({ limit: '8mb' }));
@@ -30,15 +40,32 @@ async function startServer(): Promise<void> {
       res.sendFile(path.resolve(distDir, 'index.html'));
     });
   } else {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
+    const hmrDisabled = process.env.DISABLE_HMR === 'true';
+    const viteReady: Promise<ViteDevServer> = createViteServer({
+      server: {
+        middlewareMode: true,
+        ...(hmrDisabled ? { hmr: false, ws: false } : {}),
+      },
       appType: 'spa',
     });
-    app.use(vite.middlewares);
+
+    viteReady.catch((err) => {
+      console.error('Failed to initialize Vite dev server:', err);
+      process.exit(1);
+    });
+
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await viteReady;
+        vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Bulldog server running on http://0.0.0.0:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`Bulldog server running on http://${HOST}:${PORT}`);
   });
 }
 

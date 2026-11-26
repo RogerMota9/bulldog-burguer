@@ -38,6 +38,7 @@ export const DELIVERY_TIERS: DeliveryTier[] = [
     neighborhoods: [
       'Adelmolândia 1',
       'Adelmolândia 2',
+      'Arraial Velho',
       'Caieiras',
       'Catita',
       'Fogo Apagou',
