@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Clock, Copy, ExternalLink, MapPin, Store, X } from 'lucide-react';
 import {
-  DELIVERY_TIERS,
   getDeliveryFeeForNeighborhood,
   OTHER_NEIGHBORHOOD_VALUE,
+  SORTED_DELIVERY_NEIGHBORHOODS,
 } from '../data/deliveryZones';
 import type { CartItem, CheckoutFormData, StoreSettings } from '../types';
 import {
@@ -274,18 +274,12 @@ export function CheckoutModal({ open, items, settings, onClose, onClearCart }: C
                       className="w-full min-h-[44px] rounded-xl bg-zinc-950 border border-white/10 px-3 text-sm text-white focus:outline-none focus:border-red-500 cursor-pointer"
                     >
                       <option value="">Selecione seu bairro...</option>
-                      {DELIVERY_TIERS.map((tier) => (
-                        <optgroup key={tier.fee} label={tier.label}>
-                          {tier.neighborhoods.map((name) => (
-                            <option key={name} value={name}>
-                              {name} — {formatCurrency(tier.fee)}
-                            </option>
-                          ))}
-                        </optgroup>
+                      {SORTED_DELIVERY_NEIGHBORHOODS.map(({ name, fee }) => (
+                        <option key={name} value={name}>
+                          {name} — {formatCurrency(fee)}
+                        </option>
                       ))}
-                      <optgroup label="Outras regiões">
-                        <option value={OTHER_NEIGHBORHOOD_VALUE}>{OTHER_NEIGHBORHOOD_VALUE}</option>
-                      </optgroup>
+                      <option value={OTHER_NEIGHBORHOOD_VALUE}>{OTHER_NEIGHBORHOOD_VALUE}</option>
                     </select>
                   </div>
                   <div>

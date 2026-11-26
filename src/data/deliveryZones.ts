@@ -60,6 +60,15 @@ export const DELIVERY_TIERS: DeliveryTier[] = [
   },
 ];
 
+export interface DeliveryNeighborhoodOption {
+  name: string;
+  fee: number;
+}
+
+export const SORTED_DELIVERY_NEIGHBORHOODS: DeliveryNeighborhoodOption[] = DELIVERY_TIERS.flatMap(
+  (tier) => tier.neighborhoods.map((name) => ({ name, fee: tier.fee })),
+).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+
 const NEIGHBORHOOD_FEE_MAP = new Map<string, number>();
 for (const tier of DELIVERY_TIERS) {
   for (const name of tier.neighborhoods) {
