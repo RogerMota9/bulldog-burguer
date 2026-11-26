@@ -44,6 +44,7 @@ export const DELIVERY_TIERS: DeliveryTier[] = [
       'Galego',
       'Paciência',
       'São Francisco',
+      'Vila Real',
     ],
   },
   {
